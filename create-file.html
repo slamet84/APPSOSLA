@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <title>➕ Buat File Baru</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <div class="container">
+    <h1>➕ Buat File Baru</h1>
+    <a href="index.html" class="btn">← Kembali</a>
+
+    <form id="createForm">
+      <label for="fileName">Nama File:</label>
+      <input type="text" id="fileName" required />
+
+      <label for="fileDate">Tanggal Opname:</label>
+      <input type="date" id="fileDate" required />
+
+      <button type="submit">💾 Simpan File</button>
+    </form>
+  </div>
+
+  <script>
+    document.getElementById("createForm").addEventListener("submit", function (e) {
+      e.preventDefault();
+
+      const fileName = document.getElementById("fileName").value.trim();
+      const fileDate = document.getElementById("fileDate").value;
+
+      if (!fileName || !fileDate) {
+        alert("❌ Nama file dan tanggal harus diisi.");
+        return;
+      }
+
+      let files = JSON.parse(localStorage.getItem("stockOpnameFiles")) || [];
+      const exists = files.some(f => f.name === fileName);
+
+      if (exists) {
+        alert("⚠️ File dengan nama ini sudah ada.");
+        return;
+      }
+
+      files.push({ name: fileName, date: fileDate });
+      localStorage.setItem("stockOpnameFiles", JSON.stringify(files));
+
+      alert("✅ File berhasil disimpan!");
+      window.location.href = "index.html";
+    });
+  </script>
+</body>
+</html>

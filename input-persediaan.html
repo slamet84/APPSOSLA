@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>📦 Input Persediaan</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    form > * {
+      display: block;
+      width: 100%;
+      margin-bottom: 12px;
+    }
+    .search-list {
+      border: 1px solid #ccc;
+      max-height: 150px;
+      overflow-y: auto;
+      display: none;
+      background: white;
+      position: absolute;
+      z-index: 10;
+      width: calc(100% - 2px);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .search-list li {
+      padding: 8px;
+      cursor: pointer;
+    }
+    .search-list li:hover {
+      background-color: #f0f0f0;
+    }
+    .action-btns button {
+      margin-right: 5px;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>📦 Input Persediaan</h1>
+  <a href="input-opname.html?file=" class="btn" id="backBtn">← Kembali ke Menu</a>
+  <p><strong>Nama File:</strong> <span id="fileNameDisplay"></span></p>
+
+  <form id="opnameForm">
+    <label for="searchBarang">Nama Barang</label>
+    <input type="text" id="searchBarang" placeholder="Ketik nama barang..." autocomplete="off">
+    <ul id="barangList" class="search-list"></ul>
+
+    <label for="lokasiSelect">Pilih Lokasi</label>
+    <select id="lokasiSelect"></select>
+
+    <label for="stokFisik">Stok Fisik</label>
+    <input type="number" id="stokFisik" required>
+
+    <button type="submit" id="submitBtn">💾 Simpan</button>
+  </form>
+
+  <button onclick="exportToExcel()">⬇️ Export ke Excel</button>
+
+  <h2>📋 Daftar Input Persediaan</h2>
+  <table>
+    <thead><tr><th>Nama Barang</th><th>Lokasi</th><th>Stok Fisik</th><th>Aksi</th></tr></thead>
+    <tbody id="opnameTable"></tbody>
+  </table>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script>
+let editIndex = -1;
+const fileName = decodeURIComponent(new URLSearchParams(window.location.search).get("file"));
+document.getElementById("fileNameDisplay").textContent = fileName;
+document.getElementById("backBtn").href += encodeURIComponent(fileName);
+
+function getAllItems() {
+  return JSON.parse(localStorage.getItem("masterItems_persediaan")) || [];
+}
+
+function loadLokasiToSelect(selectElement) {
+  const lokasiList = JSON.parse(localStorage.getItem("lokasi_perlengkapan")) || [];
+  selectElement.innerHTML = "<option value=''>Pilih Lokasi</option>";
+  lokasiList.forEach(loc => {
+    const option = document.createElement("option");
+    option.value = loc;
+    option.textContent = loc;
+    selectElement.appendChild(option);
+  });
+}
+
+function showFilteredItems(inputElement, listElement) {
+  const filter = inputElement.value.trim().toLowerCase();
+  const items = getAllItems();
+  listElement.innerHTML = "";
+  if (!filter) return listElement.style.display = "none";
+  listElement.style.display = "block";
+  const filtered = items.filter(item => item.nama.toLowerCase().includes(filter));
+  if (filtered.length === 0) {
+    const li = document.createElement("li");
+    li.textContent = "Tidak ditemukan...";
+    listElement.appendChild(li);
+    return;
+  }
+  filtered.forEach(item => {
+    const li = document.createElement("li");
+    li.textContent = item.nama;
+    li.onclick = () => {
+      inputElement.value = item.nama;
+      listElement.style.display = "none";
+    };
+    listElement.appendChild(li);
+  });
+}
+
+function loadData() {
+  return JSON.parse(localStorage.getItem(`opnameData_persediaan_${fileName}`)) || [];
+}
+
+function saveData(data) {
+  localStorage.setItem(`opnameData_persediaan_${fileName}`, JSON.stringify(data));
+}
+
+function refreshTable() {
+  const data = loadData();
+  const table = document.getElementById("opnameTable");
+  table.innerHTML = data.map((e, i) => `<tr><td>${e.nama}</td><td>${e.lokasi}</td><td>${e.stokFisik}</td><td class='action-btns'><button onclick="editBaris(${i})">✏️</button><button onclick="hapusBaris(${i})">🗑️</button></td></tr>`).join("");
+}
+
+function isiDropdownNamaBarang() {
+  const items = JSON.parse(localStorage.getItem("masterItems_persediaan") || "[]");
+  const select = document.getElementById("nama");
+  select.innerHTML = '<option value="">Pilih Barang</option>' +
+    items.map(i => `<option value="${i.nama}" data-kode="${i.kode}" data-satuan="${i.satuan || ''}">${i.nama}</option>`).join("");
+}
+
+function hapusBaris(index) {
+  const data = loadData();
+  data.splice(index, 1);
+  saveData(data);
+  refreshTable();
+}
+
+function editBaris(index) {
+  const data = loadData()[index];
+  document.getElementById("searchBarang").value = data.nama;
+  document.getElementById("lokasiSelect").value = data.lokasi;
+  document.getElementById("stokFisik").value = data.stokFisik;
+  editIndex = index;
+  document.getElementById("submitBtn").textContent = "✏️ Update";
+}
+
+function exportToExcel() {
+  const data = loadData();
+  if (data.length === 0) return alert("❌ Tidak ada data untuk diekspor.");
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Persediaan");
+  XLSX.writeFile(wb, `Persediaan_${fileName}.xlsx`);
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const inputBarang = document.getElementById("searchBarang");
+  const listBarang = document.getElementById("barangList");
+  const lokasiSelect = document.getElementById("lokasiSelect");
+  const stokInput = document.getElementById("stokFisik");
+  const form = document.getElementById("opnameForm");
+
+  inputBarang.addEventListener("input", () => showFilteredItems(inputBarang, listBarang));
+  loadLokasiToSelect(lokasiSelect);
+
+  form.addEventListener("submit", e => {
+    e.preventDefault();
+    const nama = inputBarang.value.trim();
+    const lokasi = lokasiSelect.value;
+    const stokFisik = parseInt(stokInput.value);
+    const item = getAllItems().find(i => i.nama === nama);
+    if (!item || !lokasi || isNaN(stokFisik)) {
+      alert("❌ Lengkapi semua field.");
+      return;
+    }
+    const data = loadData();
+    const entry = { kode: item.kode, nama, lokasi, stokFisik };
+    if (editIndex > -1) {
+      data[editIndex] = entry;
+      editIndex = -1;
+      document.getElementById("submitBtn").textContent = "💾 Simpan";
+    } else {
+      data.push(entry);
+    }
+    saveData(data);
+    inputBarang.value = "";
+    lokasiSelect.value = "";
+    stokInput.value = "";
+    refreshTable();
+  });
+
+  refreshTable();
+});
+</script>
+</body>
+</html>

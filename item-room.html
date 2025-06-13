@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <title>🗃️ Master Item Room</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <div class="container">
+    <h1>🗃️ Master Item Room</h1>
+    <a href="master-inventory.html" class="btn">← Kembali</a>
+
+    <label for="roomSelector">Pilih Room:</label>
+    <select id="roomSelector"></select>
+
+    <label for="itemSelector">Pilih Item:</label>
+    <select id="itemSelector"></select>
+
+    <button onclick="addItemToRoom()">➕ Tambahkan ke Room</button>
+
+    <h3>Daftar Item di Room:</h3>
+    <ul id="roomItemContainer"></ul>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

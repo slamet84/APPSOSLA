@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <title>Dashboard Stock Opname</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <div class="container">
+    <h1>📊 Dashboard Stock Opname</h1>
+
+    <!-- Tombol Akses Cepat -->
+    <div class="actions">
+      <a href="master-inventory.html" class="btn">📁 Master Inventory</a>
+      <a href="create-file.html" class="btn">➕ Buat File Baru</a>
+    </div>
+
+    <!-- Daftar File Opname -->
+    <h2>📂 Daftar File Opname</h2>
+    <ul id="fileList" class="file-list"></ul>
+  </div>
+
+  <script>
+    function loadFiles() {
+      const fileList = document.getElementById("fileList");
+      const files = JSON.parse(localStorage.getItem("stockOpnameFiles")) || [];
+
+      fileList.innerHTML = "";
+
+      if (files.length === 0) {
+        fileList.innerHTML = "<p>Belum ada file dibuat.</p>";
+        return;
+      }
+
+      files.forEach((file, index) => {
+        const li = document.createElement("li");
+        li.innerHTML = `
+          <a href="input-opname.html?file=${encodeURIComponent(file.name)}" style="text-decoration:none; color:black;">
+            <strong>${file.name}</strong><br/>
+            <small>Tanggal: ${file.date}</small>
+          </a>
+        `;
+        fileList.appendChild(li);
+      });
+    }
+
+    window.onload = () => {
+      loadFiles();
+    };
+  </script>
+</body>
+</html>

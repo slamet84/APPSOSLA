@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <title>📦 Input Hasil Opname Persediaan</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .search-list {
+      border: 1px solid #ccc;
+      margin-top: 5px;
+      max-height: 150px;
+      overflow-y: auto;
+      display: none;
+      background: white;
+      position: absolute;
+      z-index: 10;
+      width: calc(100% - 2px);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .search-list li {
+      padding: 8px;
+      cursor: pointer;
+    }
+    .search-list li:hover {
+      background-color: #f0f0f0;
+    }
+
+    .actions button {
+      background-color: green;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      font-size: 16px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .actions button:hover {
+      background-color: darkgreen;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <h1>📦 Input Hasil Opname Persediaan</h1>
+    <a href="index.html" class="btn">← Kembali</a>
+
+    <p><strong>Nama File:</strong> <span id="fileNameDisplay"></span></p>
+
+    <form id="opnameForm">
+      <label for="searchBarang">Nama Barang:</label>
+      <input type="text" id="searchBarang" placeholder="Ketik nama barang..." autocomplete="off" />
+      <ul id="barangList" class="search-list"></ul>
+
+      <label for="lokasiSelect">Pilih Lokasi:</label>
+      <select id="lokasiSelect"></select>
+
+      <label for="stokFisik">Stok Fisik:</label>
+      <input type="number" id="stokFisik" required />
+
+      <button type="submit">💾 Simpan</button>
+    </form>
+
+    <!-- Tombol Export -->
+    <div class="actions">
+      <button onclick="exportRekapToExcel()">⬇️ Export Rekap ke Excel</button>
+    </div>
+
+    <h2>📋 Daftar Input Stok Fisik</h2>
+    <table id="opnameTable">
+      <thead>
+        <tr>
+          <th>Nama Barang</th>
+          <th>Lokasi</th>
+          <th>Stok Fisik</th>
+          <th>Aksi</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <!-- SheetJS untuk Excel -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script> 
+  <script src="app.js"></script>
+</body>
+</html>
