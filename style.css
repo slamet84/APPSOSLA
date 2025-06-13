@@ -1,40 +1,60 @@
-/* style.css */
+/* style.css - Modified */
 body {
   font-family: 'Segoe UI', sans-serif;
-  background-color: #f4f6f8;
+  background-color: #e0f2f7; /* Warna latar belakang soft */
   margin: 0;
   padding: 0;
+  line-height: 1.6; /* Perbaiki keterbacaan */
+  color: #333; /* Warna teks umum */
 }
 
 .container {
   max-width: 800px;
-  margin: 0 auto;
-  padding: 30px 20px;
-  background-color: white;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  border-radius: 8px;
-  margin-top: 40px;
+  margin: 20px auto; /* Margin atas/bawah lebih kecil di layar besar */
+  padding: 20px; /* Padding lebih konsisten */
+  background-color: #ffffff;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1); /* Bayangan lebih lembut */
+  border-radius: 12px; /* Sudut lebih membulat */
+  box-sizing: border-box; /* Padding tidak menambah lebar */
+}
+
+h1, h2, h3 {
+    color: #00796b; /* Warna judul soft */
 }
 
 .btn {
   text-decoration: none;
-  background-color: #007bff;
+  background-color: #00897b; /* Warna tombol soft */
   color: white;
-  padding: 12px 20px;
-  border-radius: 5px;
+  padding: 12px 25px;
+  border-radius: 8px; /* Sudut tombol membulat */
   font-weight: bold;
-  transition: background 0.3s ease;
+  transition: background 0.3s ease, transform 0.1s ease, box-shadow 0.1s ease; /* Transisi untuk efek 3D */
   display: inline-block;
   margin-bottom: 20px;
+  border: none; /* Hapus border default */
+  position: relative; /* Untuk efek 3D */
+  box-shadow: 0 5px 0 #00695c; /* Bayangan untuk efek 3D */
 }
+
 .btn:hover {
-  background-color: #0056b3;
+  background-color: #00796b; /* Warna hover soft */
+  transform: translateY(2px); /* Geser sedikit ke bawah saat hover */
+  box-shadow: 0 3px 0 #00695c; /* Kurangi bayangan saat hover */
 }
+
+.btn:active {
+    transform: translateY(5px); /* Geser lebih jauh saat aktif */
+    box-shadow: 0 0 0 #00695c; /* Hilangkan bayangan saat aktif */
+}
+
 
 .actions {
   display: flex;
   gap: 15px;
   margin-bottom: 30px;
+  flex-wrap: wrap; /* Agar tombol wrapp di layar kecil */
+  justify-content: center; /* Pusatkan tombol di layar kecil */
 }
 
 .file-list {
@@ -42,18 +62,24 @@ body {
   padding-left: 0;
 }
 .file-list li {
-  background-color: #f9f9f9;
-  border: 1px solid #ddd;
+  background-color: #e0f7fa; /* Latar belakang item list soft */
+  border: 1px solid #b2ebf2; /* Border soft */
   padding: 12px 16px;
   margin-bottom: 10px;
   border-radius: 5px;
-  font-size: 16px;
+  font-size: 1em; /* Ukuran font relatif */
+  transition: background-color 0.3s ease;
+}
+
+.file-list li:hover {
+    background-color: #b2ebf2; /* Warna hover soft */
 }
 
 .tab-nav {
   display: flex;
   gap: 10px;
   margin-bottom: 20px;
+  flex-wrap: wrap; /* Agar tab wrapp di layar kecil */
 }
 
 .tab-content {
@@ -64,7 +90,7 @@ body {
 }
 
 .search-list {
-  border: 1px solid #ccc;
+  border: 1px solid #b2ebf2; /* Border soft */
   max-height: 150px;
   overflow-y: auto;
   display: none;
@@ -72,13 +98,43 @@ body {
   position: absolute;
   z-index: 10;
   width: calc(100% - 2px);
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1); /* Bayangan soft */
+  list-style-type: none; /* Hapus bullet */
+  padding: 0; /* Hapus padding default */
 }
 
 .search-list li {
   padding: 8px;
   cursor: pointer;
+  font-size: 0.9em; /* Ukuran font relatif */
 }
 .search-list li:hover {
-  background-color: #f0f0f0;
+  background-color: #e0f7fa; /* Warna hover soft */
+}
+
+/* Responsif untuk layar kecil */
+@media (max-width: 600px) {
+    .container {
+        padding: 15px; /* Kurangi padding di layar kecil */
+        margin-top: 20px;
+    }
+
+    .actions {
+        flex-direction: column; /* Tata letak kolom di layar kecil */
+        gap: 10px;
+    }
+
+    .btn {
+        width: 100%; /* Tombol full width di layar kecil */
+        box-sizing: border-box; /* Pastikan padding termasuk dalam lebar */
+    }
+
+    .tab-nav {
+        flex-direction: column; /* Tata letak kolom untuk tab di layar kecil */
+        gap: 5px;
+    }
+
+    .file-list li {
+        font-size: 0.95em; /* Sesuaikan ukuran font di layar kecil */
+    }
 }
