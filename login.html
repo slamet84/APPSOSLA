@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <title>Login Aplikasi</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; text-align: center; }
+    input { margin: 8px; padding: 8px; width: 200px; }
+    button { padding: 8px 16px; }
+  </style>
+</head>
+<body>
+  <h2>🔐 Login Stock Opname</h2>
+  <form onsubmit="return login()">
+    <input type="text" id="username" placeholder="Username" required><br>
+    <input type="password" id="password" placeholder="Password" required><br>
+    <button type="submit">Login</button>
+  </form>
+
+  <script>
+    function login() {
+      const user = document.getElementById("username").value;
+      const pass = document.getElementById("password").value;
+
+      const validUser = "admin";
+      const validPass = "123456";
+
+      if (user === validUser && pass === validPass) {
+        localStorage.setItem("login", "true");
+        window.location.href = "dashboard.html";
+      } else {
+        alert("Username atau password salah!");
+      }
+      return false;
+    }
+  </script>
+</body>
+</html>
