@@ -37,6 +37,30 @@
     <ul id="fileList" class="file-list"></ul>
   </div>
 
+    <script>
+    function logout() {
+      // Jika pakai localStorage
+      localStorage.removeItem("login");
+      localStorage.removeItem("userEmail");
+
+      // Jika pakai Firebase Auth
+      try {
+        import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js').then(({ getAuth, signOut }) => {
+          const auth = getAuth();
+          signOut(auth).then(() => {
+            console.log("Logout dari Firebase berhasil");
+            window.location.href = "login.html";
+          }).catch((error) => {
+            console.error("Gagal logout Firebase:", error);
+          });
+        });
+      } catch (e) {
+        console.warn("Firebase belum digunakan, logout lokal saja");
+        window.location.href = "login.html";
+      }
+    }
+  </script>
+
   <script>
     function loadFiles() {
       const fileList = document.getElementById("fileList");
