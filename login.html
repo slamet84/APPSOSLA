@@ -2,37 +2,41 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8" />
-  <title>Login Aplikasi</title>
-  <style>
-    body { font-family: sans-serif; padding: 20px; text-align: center; }
-    input { margin: 8px; padding: 8px; width: 200px; }
-    button { padding: 8px 16px; }
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login Google - Stock Opname</title>
 </head>
 <body>
-  <h2>🔐 Login Stock Opname</h2>
-  <form onsubmit="return login()">
-    <input type="text" id="username" placeholder="Username" required><br>
-    <input type="password" id="password" placeholder="Password" required><br>
-    <button type="submit">Login</button>
-  </form>
+  <h2>🔐 Login dengan Google</h2>
+  <button id="loginBtn">Login via Google</button>
 
-  <script>
-    function login() {
-      const user = document.getElementById("username").value;
-      const pass = document.getElementById("password").value;
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getAuth, signInWithPopup, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
-      const validUser = "admin";
-      const validPass = "123456";
+    const firebaseConfig = {
+      apiKey: "AIzaSyC0EuYKCUqHpQOOSfZQvyIDwmwev0OLxlE",
+      authDomain: "APPSOSLA01.firebaseapp.com",
+      projectId: "appsosla-01",
+      // tambahkan jika ada lainnya
+    };
 
-      if (user === validUser && pass === validPass) {
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const provider = new GoogleAuthProvider();
+
+    document.getElementById("loginBtn").addEventListener("click", async () => {
+      try {
+        const result = await signInWithPopup(auth, provider);
+        const user = result.user;
+        console.log("Login sukses:", user.displayName);
         localStorage.setItem("login", "true");
+        localStorage.setItem("userEmail", user.email);
         window.location.href = "index.html";
-      } else {
-        alert("Username atau password salah!");
+      } catch (error) {
+        alert("Login gagal: " + error.message);
+        console.error(error);
       }
-      return false;
-    }
+    });
   </script>
 </body>
 </html>
