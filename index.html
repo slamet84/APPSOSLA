@@ -39,7 +39,7 @@
     <a href="privacy-policy.html">Privacy Policy</a>
   </footer>
   <script>
-    // Supabase config
+    // Supabase config (ganti jika perlu)
     const SUPABASE_URL = 'https://yxwxqlufyzxroomjbuqh.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl4d3hxbHVmeXp4cm9vbWpidXFoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAwNDYxNDUsImV4cCI6MjA2NTYyMjE0NX0.wIlqtvkERpdHPaGyg8JufZL10M1noTi6hvTD6HPC36Q';
     const BUCKET_NAME = 'uploads';
@@ -79,7 +79,7 @@
         return;
       }
 
-      // Urutkan file (terbaru di atas jika possible)
+      // Urutkan file (terbaru di atas jika ada info tanggal)
       data.sort((a,b) => b.created_at && a.created_at ? (new Date(b.created_at)-new Date(a.created_at)) : 0);
 
       data.forEach(file => {
