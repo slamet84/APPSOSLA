@@ -3,27 +3,71 @@
 <head>
   <meta charset="UTF-8">
   <title>Login - APPSOSLA</title>
+  <style>
+    body { background: #e6f7fa; font-family: Arial,sans-serif;}
+    .container { max-width:350px;margin:60px auto;background:#fff;border-radius:12px;box-shadow:0 2px 8px #0002;padding:2rem;}
+    h2,h3 {color:#00806a;}
+    input,button {width:90%;margin:6px 0;padding:10px;font-size:1rem;}
+    .btn {background:#00806a;color:white;border:none;border-radius:6px;}
+    .btn:hover {background:#00594c;}
+    .err {color:red;}
+    .link {color:#007bff; cursor:pointer; text-decoration:underline;}
+    #registerBox {background:#f2f9fa;padding:1rem 0;margin-top:1rem;border-radius:8px;}
+  </style>
 </head>
 <body>
-  <h2>Login</h2>
-  <form id="loginForm">
-    <input type="text" id="username" placeholder="Username" required><br>
-    <input type="password" id="password" placeholder="Password" required><br>
-    <button type="submit">Login</button>
-  </form>
-  <div id="error" style="color:red;"></div>
+  <div class="container">
+    <h2>Login APPSOSLA</h2>
+    <form id="loginForm">
+      <input type="email" id="email" placeholder="Email" required><br>
+      <input type="password" id="password" placeholder="Password" required><br>
+      <button type="submit" class="btn">Login</button>
+    </form>
+    <div id="error" class="err"></div>
+    <div style="margin-top:10px;">
+      <span class="link" onclick="showRegister()">Belum punya akun? Daftar</span>
+    </div>
+    <div id="registerBox" style="display:none;">
+      <h3>Register</h3>
+      <input type="email" id="reg_email" placeholder="Email"><br>
+      <input type="password" id="reg_password" placeholder="Password"><br>
+      <button class="btn" onclick="registerSupabase()">Daftar</button>
+      <div id="regError" class="err"></div>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
   <script>
-    document.getElementById('loginForm').onsubmit = function(e) {
+    // Ganti sesuai project Anda!
+    const SUPABASE_URL = 'https://xxxx.supabase.co';
+    const SUPABASE_ANON_KEY = 'public-anon-key';
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // LOGIN
+    document.getElementById('loginForm').onsubmit = async function(e) {
       e.preventDefault();
-      const username = document.getElementById('username').value;
+      const email = document.getElementById('email').value;
       const password = document.getElementById('password').value;
-      // Ganti user/pass sesuai kebutuhan Anda
-      if (username === "admin" && password === "opname123") {
-        localStorage.setItem("login", "true");
-        localStorage.setItem("userEmail", username);
-        window.location.href = "index.html";
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        document.getElementById('error').textContent = error.message;
       } else {
-        document.getElementById('error').textContent = "Username/password salah!";
+        window.location.href = "index.html";
+      }
+    }
+
+    // REGISTER
+    function showRegister() {
+      document.getElementById('registerBox').style.display = 'block';
+    }
+    async function registerSupabase() {
+      const email = document.getElementById('reg_email').value;
+      const password = document.getElementById('reg_password').value;
+      const { data, error } = await supabase.auth.signUp({ email, password });
+      if (error) {
+        document.getElementById('regError').textContent = error.message;
+      } else {
+        document.getElementById('regError').style.color = 'green';
+        document.getElementById('regError').textContent = "Daftar berhasil! Cek email untuk verifikasi, lalu login.";
       }
     }
   </script>
