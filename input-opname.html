@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
+  <meta charset="UTF-8">
+  <title>📋 Menu Input Opname</title>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#007bff">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta charset="UTF-8">
-  <title>📋 Menu Input Opname</title>
   <link rel="stylesheet" href="style.css">
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -20,68 +20,204 @@
   </style>
 </head>
 <body>
-<div class="container">
-  <h1>📋 Menu Input Opname</h1>
-  <p><strong>Nama File:</strong> <span id="fileNameDisplay"></span></p>
-  <a href="index.html" class="btn">← Kembali ke Dashboard</a>
+  <div class="container">
+    <h1>📋 Menu Input Opname</h1>
+    <p><strong>Nama File:</strong> <span id="fileNameDisplay"></span></p>
+    <a href="index.html" class="btn">← Kembali ke Dashboard</a>
 
-  <div class="tab-nav">
-    <button onclick="showTab('menu')" class="active">📂 Menu</button>
-    <button onclick="showTab('saldoawal')">📥 Saldo Awal Perlengkapan OS</button>
-    <button onclick="showTab('saldoawalps')">📥 Saldo Awal Persediaan OS</button>
-    <button onclick="showTab('hasilopname')">📊 Hasil Opname Perlengkapan</button>
-    <button onclick="showTab('hasilopnameps')">📊 Hasil Opname Persediaan</button>
-  </div>
+    <div class="tab-nav">
+      <button onclick="showTab('menu')" class="active">📂 Menu</button>
+      <button onclick="showTab('saldoawal')">📥 Saldo Awal Perlengkapan OS</button>
+      <button onclick="showTab('hasilopname')">📊 Hasil Opname Perlengkapan</button>
+    </div>
 
-  <div id="menu" class="tab-content active">
-    <a class="btn" id="btnPrl">🧾 Input Perlengkapan</a>
-    <a class="btn" id="btnPs">📦 Input Persediaan</a>
-    <a class="btn" id="btnRoom">🏠 Input Room</a>
-  </div>
+    <div id="menu" class="tab-content active">
+      <a class="btn" id="btnPrl">🧾 Input Perlengkapan</a>
+      <a class="btn" id="btnRoom">🏠 Input Room</a>
+    </div>
 
-  <div id="saldoawal" class="tab-content">
-    <h2>📥 Saldo Awal Perlengkapan OS</h2>
-    <input type="file" id="uploadSaldo" accept=".xlsx">
-    <button onclick="clearSaldoAwal()">🗑 Hapus Data</button>
-    <table><thead><tr><th>Kode</th><th>Nama</th><th>Jumlah</th></tr></thead><tbody id="saldoAwalTable"></tbody></table>
-  </div>
+    <div id="saldoawal" class="tab-content">
+      <h2>📥 Saldo Awal Perlengkapan OS</h2>
+      <input type="file" id="uploadSaldo" accept=".xlsx">
+      <button onclick="clearSaldoAwal()">🗑️ Hapus Data</button>
+      <table><thead><tr><th>Kode</th><th>Nama</th><th>Jumlah</th></tr></thead><tbody id="saldoAwalTable"></tbody></table>
+    </div>
 
-  <div id="saldoawalps" class="tab-content">
-    <h2>📥 Saldo Awal Persediaan OS</h2>
-    <input type="file" id="uploadSaldoPs" accept=".xlsx">
-    <button onclick="clearSaldoAwalPs()">🗑 Hapus Data</button>
-    <table><thead><tr><th>Kode</th><th>Nama</th><th>Jumlah</th></tr></thead><tbody id="saldoAwalTablePs"></tbody></table>
-  </div>
-
-  <div id="hasilopname" class="tab-content">
-    <h2>📊 Hasil Opname Perlengkapan</h2>
-    <button onclick="exportHasilOpname()">⬇️ Export Excel</button>
-    <table><thead><tr><th>Kode</th><th>Nama</th><th>Saldo</th><th>Input</th><th>Selisih</th></tr></thead><tbody id="hasilOpnameTable"></tbody></table>
-  </div>
-
-  <div id="hasilopnameps" class="tab-content">
-    <h2>📊 Hasil Opname Persediaan</h2>
-    <button onclick="exportHasilOpnamePs()">⬇️ Export Excel</button>
-    <table><thead><tr><th>Kode</th><th>Nama</th><th>Saldo</th><th>Input</th><th>Selisih</th></tr></thead><tbody id="hasilOpnameTablePs"></tbody></table>
+    <div id="hasilopname" class="tab-content">
+      <h2>📊 Hasil Opname Perlengkapan</h2>
+      <button onclick="exportHasilOpname()">⬇️ Export Excel</button>
+      <table><thead><tr><th>Kode</th><th>Nama</th><th>Saldo</th><th>Input</th><th>Selisih</th></tr></thead><tbody id="hasilOpnameTable"></tbody></table>
+    </div>
   </div>
 
 <script>
-// === Bagian normalizeKey diperbaiki ===
+// === KONFIGURASI SUPABASE ===
+const SUPABASE_URL = "https://yxwxqlufyzxroomjbuqh.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl4d3hxbHVmeXp4cm9vbWpidXFoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAwNDYxNDUsImV4cCI6MjA2NTYyMjE0NX0.wIlqtvkERpdHPaGyg8JufZL10M1noTi6hvTD6HPC36Q";
+const BUCKET_NAME = "opname";
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// === NAMA FILE ===
+const fileName = decodeURIComponent(new URLSearchParams(window.location.search).get("file") || "data");
+document.getElementById("fileNameDisplay").textContent = fileName;
+document.getElementById("btnPrl").href = `input-perlengkapan.html?file=${fileName}`;
+document.getElementById("btnRoom").href = `input-room.html?file=${fileName}`;
+
+// === TAB NAVIGASI ===
+function showTab(id) {
+  document.querySelectorAll(".tab-content").forEach(el => el.classList.remove("active"));
+  document.querySelectorAll(".tab-nav button").forEach(btn => btn.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+  event.target.classList.add("active");
+  if (id === "hasilopname") refreshHasilOpname();
+}
+
+// === NORMALISASI ===
 function normalizeKey(obj) {
   const out = {};
   for (let key in obj) {
     const norm = key.trim().toLowerCase();
-    if (norm.includes('kode')) out.kode = obj[key];
+    if (norm === 'kode') out.kode = obj[key];
     if (norm.includes('nama')) out.nama = obj[key];
     if (norm.includes('jumlah')) out.jumlah = parseInt(obj[key]) || 0;
   }
   return out;
 }
+
+// === SALDO AWAL ===
+function displaySaldoAwal() {
+  const data = JSON.parse(localStorage.getItem(`saldoAwal_perlengkapan_${fileName}`)) || [];
+  const tbody = document.getElementById("saldoAwalTable");
+  tbody.innerHTML = data.map(d => {
+    const item = normalizeKey(d);
+    return `<tr><td>${item.kode}</td><td>${item.nama}</td><td>${item.jumlah}</td></tr>`;
+  }).join("");
+}
+function clearSaldoAwal() {
+  localStorage.removeItem(`saldoAwal_perlengkapan_${fileName}`);
+  displaySaldoAwal();
+  uploadFileOpnameToCloud();
+}
+document.getElementById("uploadSaldo").addEventListener("change", function(e) {
+  const reader = new FileReader();
+  reader.onload = function(evt) {
+    const wb = XLSX.read(evt.target.result, { type: "array" });
+    const data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+    localStorage.setItem(`saldoAwal_perlengkapan_${fileName}`, JSON.stringify(data));
+    displaySaldoAwal();
+    uploadFileOpnameToCloud();
+  };
+  reader.readAsArrayBuffer(e.target.files[0]);
+});
+displaySaldoAwal();
+
+// === HASIL OPNAME ===
+function refreshHasilOpname() {
+  const saldo = (JSON.parse(localStorage.getItem(`saldoAwal_perlengkapan_${fileName}`)) || []).map(normalizeKey);
+  const input1 = JSON.parse(localStorage.getItem(`opnameData_perlengkapan_${fileName}`) || "[]");
+  const input2 = JSON.parse(localStorage.getItem(`opnameData_room_${fileName}`) || "[]");
+  const all = [...input1, ...input2];
+  const total = {};
+
+  all.forEach(item => {
+    if (!total[item.kode]) total[item.kode] = { jumlah: 0, nama: item.nama, lokasi: {} };
+    total[item.kode].jumlah += parseInt(item.stokFisik || 0);
+    const lok = item.lokasi || "-";
+    total[item.kode].lokasi[lok] = (total[item.kode].lokasi[lok] || 0) + parseInt(item.stokFisik || 0);
+  });
+
+  const hasil = {};
+
+  saldo.forEach(item => {
+    hasil[item.kode] = {
+      kode: item.kode,
+      nama: item.nama,
+      saldoAwal: item.jumlah,
+      totalInput: total[item.kode]?.jumlah || 0,
+      lokasi: total[item.kode]?.lokasi || {}
+    };
+    hasil[item.kode].selisih = hasil[item.kode].saldoAwal - hasil[item.kode].totalInput;
+  });
+
+  Object.keys(total).forEach(kode => {
+    if (!hasil[kode]) {
+      hasil[kode] = {
+        kode,
+        nama: total[kode].nama,
+        saldoAwal: 0,
+        totalInput: total[kode].jumlah,
+        selisih: 0 - total[kode].jumlah,
+        lokasi: total[kode].lokasi
+      };
+    }
+  });
+
+  const tbody = document.getElementById("hasilOpnameTable");
+  tbody.innerHTML = Object.values(hasil).map(r =>
+    `<tr>
+      <td>${r.kode}</td>
+      <td><a href="#" onclick='showLocations(${JSON.stringify(r.lokasi)})'>${r.nama}</a></td>
+      <td>${r.saldoAwal}</td>
+      <td>${r.totalInput}</td>
+      <td>${r.selisih}</td>
+    </tr>`
+  ).join("");
+}
+
+function showLocations(lokasiObj) {
+  const info = Object.entries(lokasiObj).map(([lok, jumlah]) => `📍 ${lok}: ${jumlah}`).join("\n");
+  alert(info || "Tidak ada lokasi");
+}
+
+function exportHasilOpname() {
+  const data = [...document.querySelectorAll("#hasilOpnameTable tr")].map(tr => {
+    const td = tr.querySelectorAll("td");
+    return {
+      Kode: td[0].innerText,
+      Nama: td[1].innerText,
+      Saldo: td[2].innerText,
+      Input: td[3].innerText,
+      Selisih: td[4].innerText
+    };
+  });
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.json_to_sheet(data);
+  XLSX.utils.book_append_sheet(wb, ws, "Hasil Perlengkapan");
+  XLSX.writeFile(wb, `HasilOpnamePerlengkapan_${fileName}.xlsx`);
+}
+
+// === SINKRONISASI CLOUD ===
+function getAllOpnameData() {
+  return {
+    saldoAwal_perlengkapan: JSON.parse(localStorage.getItem(`saldoAwal_perlengkapan_${fileName}`) || "[]"),
+    opnameData_perlengkapan: JSON.parse(localStorage.getItem(`opnameData_perlengkapan_${fileName}`) || "[]"),
+    opnameData_room: JSON.parse(localStorage.getItem(`opnameData_room_${fileName}`) || "[]")
+  };
+}
+async function uploadFileOpnameToCloud() {
+  const data = getAllOpnameData();
+  const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
+  const path = `opname-files/${fileName}.json`;
+  const { error } = await supabase.storage.from(BUCKET_NAME).upload(path, blob, { upsert: true });
+  if (error) console.error("Gagal sync cloud:", error.message);
+}
+async function syncFileOpnameFromCloud() {
+  const path = `opname-files/${fileName}.json`;
+  const { data, error } = await supabase.storage.from(BUCKET_NAME).download(path);
+  if (!error && data) {
+    try {
+      const text = await data.text();
+      const obj = JSON.parse(text);
+      if (obj.saldoAwal_perlengkapan) localStorage.setItem(`saldoAwal_perlengkapan_${fileName}`, JSON.stringify(obj.saldoAwal_perlengkapan));
+      if (obj.opnameData_perlengkapan) localStorage.setItem(`opnameData_perlengkapan_${fileName}`, JSON.stringify(obj.opnameData_perlengkapan));
+      if (obj.opnameData_room) localStorage.setItem(`opnameData_room_${fileName}`, JSON.stringify(obj.opnameData_room));
+    } catch {}
+  }
+}
+syncFileOpnameFromCloud().then(() => {
+  displaySaldoAwal();
+  refreshHasilOpname();
+});
 </script>
-
-<!-- Semua script lainnya tetap seperti yang sudah kamu buat -->
-<!-- Sisanya tinggal kamu salin dari versi sebelumnya -->
-<!-- Termasuk script Supabase, tab switching, export Excel, dan penyimpanan lokal -->
-
 </body>
 </html>
