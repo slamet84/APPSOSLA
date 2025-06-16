@@ -75,9 +75,9 @@ document.getElementById("fileNameDisplay").textContent = fileName;
 document.getElementById("backBtn").href += encodeURIComponent(fileName);
 
 function getAllItems() {
-  return JSON.parse(localStorage.getItem("masterItems")) || [];
+  return JSON.parse(localStorage.getItem("masterItems_perlengkapan")) || [];
 }
-
+  
 function loadLokasiToSelect(selectElement) {
   const lokasiList = JSON.parse(localStorage.getItem("lokasi_room")) || [];
   selectElement.innerHTML = "<option value=''>Pilih Lokasi</option>";
