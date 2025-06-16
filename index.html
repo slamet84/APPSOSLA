@@ -1,13 +1,28 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#007bff">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>APPSOSLA</title>
   <link rel="stylesheet" href="style.css" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <style>
+    body { background: #e6f7fa; }
+    .container { max-width: 650px; margin: 40px auto; background: #fff; border-radius: 18px; box-shadow: 0 2px 12px #0001; padding: 2.5rem 2.5rem 2rem 2.5rem;}
+    h1 { color: #00806a;}
+    .actions { text-align:center; margin:1.5rem 0;}
+    .btn { background: #00806a; color: #fff; border: none; border-radius: 8px; padding: 16px 28px; font-size: 1.2rem; margin: 0 10px; font-weight: bold; cursor:pointer; box-shadow: 0 2px 6px #0001; transition: background .2s;}
+    .btn:hover { background: #00594c;}
+    .file-list { margin: .5rem 0 0 0; padding:0; list-style:none;}
+    .file-list li { margin: 0 0 1rem 0; padding: 12px 14px; background: #f2f9fa; border-radius: 7px; border-left: 5px solid #ffc107; font-size: 1rem;}
+    .progress { color: #00806a; margin-top:.5rem;}
+    .url { color: #00594c; }
+    h2 { margin-top:2rem;color:#00806a; }
+    .logout-btn { background-color:red; color:white; border:none; padding:10px 20px; border-radius:6px; font-size:1rem;}
+    .export-btn { background: #007bff; color: #fff; border: none; border-radius: 6px; padding: 10px 18px; font-size: 1rem; margin-bottom: 1rem; cursor: pointer;}
+    .export-btn:hover { background: #0056b3;}
+    @media (max-width:600px) { .container { padding:1rem;} .btn { padding: 12px 8px; margin: 5px 3px;}}
+  </style>
 </head>
 <body>
   <script>
@@ -15,87 +30,68 @@
       window.location.href = "login.html";
     }
   </script>
-
   <div class="container">
     <h1>APPSOSLA</h1>
-
-    <!-- Tombol Logout -->
     <div style="text-align: right;">
-      <button onclick="logout()" style="background-color:red; color:white; border:none; padding:6px 12px; border-radius:4px;">🔓 Logout</button>
+      <button onclick="logout()" class="logout-btn">🔒 Logout</button>
     </div>
-    
-    <!-- Tombol Akses Cepat -->
     <div class="actions">
       <a href="master-inventory.html" class="btn">📁 Master Inventory</a>
-      <a href="create-file.html" class="btn">➕ Buat File Baru</a>
+      <a href="#" class="btn" onclick="buatFileBaru()">➕ Buat File Baru</a>
     </div>
-
-    <!-- Upload ke Supabase Storage -->
-    <h2>☁️ Upload File ke Supabase + Simpan ke Lokal</h2>
+    <h2>☁️ Tambah File Opname (Otomatis ke Cloud)</h2>
     <input type="file" id="fileInput" />
-    <button id="uploadBtn">Upload</button>
     <div class="progress" id="progress"></div>
     <div class="url" id="fileUrl"></div>
     <hr/>
-
-    <!-- Daftar File Opname -->
-    <h2>📂 Daftar File Opname (Lokal & Cloud)</h2>
+    <h2>📁 Daftar File Opname <span style="color:#ffc107;">(Lokal & Cloud)</span></h2>
     <ul id="fileList" class="file-list"></ul>
+    <!-- Export Dummy Data (Contoh Otomatis) -->
+    <button class="export-btn" onclick="exportDummyCSV()">Export Dummy Opname (CSV) & Upload Otomatis</button>
   </div>
-  
-  <!-- Tambahkan footer dengan link Privacy Policy -->
   <footer style="text-align:center; margin-top:2rem;">
     <a href="privacy-policy.html">Privacy Policy</a>
   </footer>
-  
   <script>
     function logout() {
       localStorage.removeItem("login");
       localStorage.removeItem("userEmail");
       window.location.href = "login.html";    
     }
-  </script>
 
-  <!-- Script Supabase Upload + Hybrid Storage -->
-  <script>
-    // Ganti dengan properti project Supabase Anda
-    const SUPABASE_URL = 'https://yxwxqlufyzxroomjbuqh.supabase.co'; // Ganti!
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl4d3hxbHVmeXp4cm9vbWpidXFoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAwNDYxNDUsImV4cCI6MjA2NTYyMjE0NX0.wIlqtvkERpdHPaGyg8JufZL10M1noTi6hvTD6HPC36Q';     // Ganti!
-    const BUCKET_NAME = 'uploads';
+    // --- Ganti sesuai project Supabase Anda ---
+    const SUPABASE_URL = 'https://xxxx.supabase.co'; // Ganti dengan URL project Anda
+    const SUPABASE_ANON_KEY = 'public-anon-key';     // Ganti dengan anon/public key Anda
+    const BUCKET_NAME = 'uploads';                   // Nama bucket di Supabase Storage
 
-    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    document.getElementById('uploadBtn').addEventListener('click', async () => {
+    // --- Upload File ke Supabase & Simpan Metadata ke Lokal ---
+    document.getElementById('fileInput').addEventListener('change', async (e) => {
       const fileInput = document.getElementById('fileInput');
+      const file = fileInput.files[0];
+      if (!file) return;
+      await uploadAndSaveMeta(file, file.name);
+      fileInput.value = "";
+    });
+
+    // Fungsi utama upload file apapun ke Supabase dan simpan metadata
+    async function uploadAndSaveMeta(fileBlob, fileName) {
       const progress = document.getElementById('progress');
       const fileUrl = document.getElementById('fileUrl');
-      progress.textContent = '';
+      progress.textContent = 'Uploading...';
       fileUrl.textContent = '';
 
-      if (!fileInput.files.length) {
-        progress.textContent = 'Pilih file terlebih dahulu!';
-        return;
-      }
-
-      const file = fileInput.files[0];
-      const now = new Date();
-      const tanggal = now.toLocaleDateString("id-ID") + " " + now.toLocaleTimeString("id-ID");
-      const path = `user-uploads/${Date.now()}-${file.name}`;
-
-      progress.textContent = 'Uploading...';
-
-      // Upload ke Supabase
+      const path = `user-files/${Date.now()}-${encodeURIComponent(fileName)}`;
       const { data, error } = await supabase
         .storage
         .from(BUCKET_NAME)
-        .upload(path, file);
+        .upload(path, fileBlob);
 
       if (error) {
         progress.textContent = 'Gagal upload: ' + error.message;
         return;
       }
-
-      progress.textContent = 'Upload berhasil!';
 
       // Dapatkan public URL
       const { data: publicData } = supabase
@@ -103,31 +99,33 @@
         .from(BUCKET_NAME)
         .getPublicUrl(path);
 
+      progress.textContent = 'Upload berhasil!';
       fileUrl.innerHTML = `Public URL: <a href="${publicData.publicUrl}" target="_blank">${publicData.publicUrl}</a>`;
 
       // Simpan metadata file ke localStorage
       const files = JSON.parse(localStorage.getItem("stockOpnameFiles")) || [];
+      const now = new Date();
+      const tanggal = now.toLocaleDateString("id-ID") + " " + now.toLocaleTimeString("id-ID");
       files.push({
-        name: file.name,
+        name: fileName,
         date: tanggal,
         publicUrl: publicData.publicUrl
       });
       localStorage.setItem("stockOpnameFiles", JSON.stringify(files));
       loadFiles();
-    });
+      setTimeout(() => {progress.textContent = ""; fileUrl.textContent = "";}, 3500);
+    }
 
+    // --- Tampilkan Daftar File ---
     function loadFiles() {
       const fileList = document.getElementById("fileList");
       const files = JSON.parse(localStorage.getItem("stockOpnameFiles")) || [];
-
       fileList.innerHTML = "";
-
       if (files.length === 0) {
         fileList.innerHTML = "<p>Belum ada file dibuat.</p>";
         return;
       }
-
-      files.forEach((file, index) => {
+      files.slice().reverse().forEach((file, index) => {
         const li = document.createElement("li");
         li.innerHTML = `
           <strong>${file.name}</strong><br/>
@@ -137,10 +135,35 @@
         fileList.appendChild(li);
       });
     }
+    window.onload = () => { loadFiles(); };
 
-    window.onload = () => {
-      loadFiles();
-    };
+    // --- SIMULASI: Fungsi Buat File Baru (CSV) & Upload Otomatis ---
+    function buatFileBaru() {
+      // Data dummy, ganti dengan hasil opname asli jika ada
+      const rows = [
+        ["No", "Kode", "Nama Barang", "Jumlah"],
+        ["1", "INV001", "Laptop", "10"],
+        ["2", "INV002", "Printer", "5"]
+      ];
+      const csvContent = rows.map(e=>e.join(",")).join("\n");
+      const blob = new Blob([csvContent], {type: "text/csv"});
+      const namaFile = "opname-" + new Date().toISOString().slice(0,10) + ".csv";
+      uploadAndSaveMeta(blob, namaFile);
+    }
+
+    // --- SIMULASI: Fungsi Export Dummy Data (CSV) & Upload Otomatis ---
+    function exportDummyCSV() {
+      // Data dummy, ganti dengan hasil export asli jika perlu
+      const rows = [
+        ["No", "Kode", "Nama Barang", "Jumlah"],
+        ["1", "INV001", "Laptop", "10"],
+        ["2", "INV002", "Printer", "5"]
+      ];
+      const csvContent = rows.map(e=>e.join(",")).join("\n");
+      const blob = new Blob([csvContent], {type: "text/csv"});
+      const namaFile = "export-opname-" + new Date().toISOString().slice(0,10) + ".csv";
+      uploadAndSaveMeta(blob, namaFile);
+    }
   </script>
 </body>
 </html>
