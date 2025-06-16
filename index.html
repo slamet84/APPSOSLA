@@ -26,6 +26,7 @@
 </head>
 <body>
   <script>
+    // Login check sederhana, tidak ada firebase
     if (localStorage.getItem("login") !== "true") {
       window.location.href = "login.html";
     }
@@ -46,7 +47,9 @@
     <hr/>
     <h2>📁 Daftar File Opname <span style="color:#ffc107;">(Lokal & Cloud)</span></h2>
     <ul id="fileList" class="file-list"></ul>
-    </div>
+    <!-- Export Dummy Data (Contoh Otomatis) -->
+    <button class="export-btn" onclick="exportDummyCSV()">Export Dummy Opname (CSV) & Upload Otomatis</button>
+  </div>
   <footer style="text-align:center; margin-top:2rem;">
     <a href="privacy-policy.html">Privacy Policy</a>
   </footer>
@@ -58,8 +61,8 @@
     }
 
     // --- Ganti sesuai project Supabase Anda ---
-    const SUPABASE_URL = 'https://xxxx.supabase.co'; // Ganti dengan URL project Anda
-    const SUPABASE_ANON_KEY = 'public-anon-key';     // Ganti dengan anon/public key Anda
+    const SUPABASE_URL = 'https://yxwxqlufyzxroomjbuqh.supabase.co'; // Ganti dengan URL project Anda
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl4d3hxbHVmeXp4cm9vbWpidXFoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAwNDYxNDUsImV4cCI6MjA2NTYyMjE0NX0.wIlqtvkERpdHPaGyg8JufZL10M1noTi6hvTD6HPC36Q';     // Ganti dengan anon/public key Anda
     const BUCKET_NAME = 'uploads';                   // Nama bucket di Supabase Storage
 
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
