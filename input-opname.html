@@ -153,6 +153,7 @@ document.getElementById("uploadSaldoPs").addEventListener("change", function(e) 
 displaySaldoAwalPs();
 
 // ===== HASIL OPNAME PERLENGKAPAN =====
+// Hanya tampilkan yang ada di saldo awal
 function refreshHasilOpname() {
   const saldo = (JSON.parse(localStorage.getItem(`saldoAwal_perlengkapan_${fileName}`)) || []).map(normalizeKey);
   const input1 = JSON.parse(localStorage.getItem(`opnameData_perlengkapan_${fileName}`) || "[]");
@@ -179,18 +180,7 @@ function refreshHasilOpname() {
     hasil[item.kode].selisih = hasil[item.kode].saldoAwal - hasil[item.kode].totalInput;
   });
 
-  Object.keys(total).forEach(kode => {
-    if (!hasil[kode]) {
-      hasil[kode] = {
-        kode,
-        nama: total[kode].nama,
-        saldoAwal: 0,
-        totalInput: total[kode].jumlah,
-        selisih: -total[kode].jumlah,
-        lokasi: total[kode].lokasi
-      };
-    }
-  });
+  // Tidak perlu memasukkan kode yang tidak ada di saldo awal (hapus bagian Object.keys(total))
 
   const tbody = document.getElementById("hasilOpnameTable");
   tbody.innerHTML = Object.values(hasil).map(r =>
@@ -207,7 +197,7 @@ function refreshHasilOpname() {
 function showLocations(lokasiObj) {
   const info = Object.entries(lokasiObj)
     .map(([lok, jumlah]) => `📍 ${lok}: ${jumlah}`)
-    .join("\\n");
+    .join("\n");
   alert(info || "Tidak ada lokasi");
 }
 
@@ -229,14 +219,18 @@ function exportHasilOpname() {
 }
 
 // ===== HASIL OPNAME PERSEDIAAN =====
+// Nama barang bisa di-klik untuk melihat lokasi, tampilkan hanya yang ada di saldo awal
 function refreshHasilOpnamePs() {
   const saldo = (JSON.parse(localStorage.getItem(`saldoAwal_persediaan_${fileName}`)) || []).map(normalizeKey);
   const input = JSON.parse(localStorage.getItem(`opnameData_persediaan_${fileName}`) || "[]");
   const total = {};
 
   input.forEach(item => {
-    if (!total[item.kode]) total[item.kode] = { jumlah: 0, nama: item.nama };
+    if (!total[item.kode]) total[item.kode] = { jumlah: 0, nama: item.nama, lokasi: {} };
     total[item.kode].jumlah += parseInt(item.stokFisik || 0);
+    // Data lokasi jika ada (atau default -)
+    const lok = item.lokasi || "-";
+    total[item.kode].lokasi[lok] = (total[item.kode].lokasi[lok] || 0) + parseInt(item.stokFisik || 0);
   });
 
   const hasil = {};
@@ -246,25 +240,22 @@ function refreshHasilOpnamePs() {
       nama: item.nama,
       saldoAwal: item.jumlah,
       totalInput: total[item.kode]?.jumlah || 0,
+      lokasi: total[item.kode]?.lokasi || {}
     };
     hasil[item.kode].selisih = hasil[item.kode].saldoAwal - hasil[item.kode].totalInput;
   });
 
-  Object.keys(total).forEach(kode => {
-    if (!hasil[kode]) {
-      hasil[kode] = {
-        kode,
-        nama: total[kode].nama,
-        saldoAwal: 0,
-        totalInput: total[kode].jumlah,
-        selisih: -total[kode].jumlah
-      };
-    }
-  });
+  // Tidak perlu data kode yang tidak ada di saldo awal
 
   const tbody = document.getElementById("hasilOpnameTablePs");
   tbody.innerHTML = Object.values(hasil).map(r =>
-    `<tr><td>${r.kode}</td><td>${r.nama}</td><td>${r.saldoAwal}</td><td>${r.totalInput}</td><td>${r.selisih}</td></tr>`
+    `<tr>
+      <td>${r.kode}</td>
+      <td><a href="#" onclick='showLocations(${JSON.stringify(r.lokasi)})'>${r.nama}</a></td>
+      <td>${r.saldoAwal}</td>
+      <td>${r.totalInput}</td>
+      <td>${r.selisih}</td>
+    </tr>`
   ).join("");
 }
 
@@ -288,10 +279,6 @@ function exportHasilOpnamePs() {
 // ========================
 // === SINKRONISASI CLOUD
 // ========================
-// Semua data opname untuk file ini akan disimpan pada cloud Supabase Storage dalam satu file JSON dengan nama sesuai fileName.
-// Data yang di-sync: saldoAwal_perlengkapan, saldoAwal_persediaan, opnameData_perlengkapan, opnameData_persediaan, opnameData_room.
-
-// Fungsi untuk mendapatkan semua data opname (satu file)
 function getAllOpnameData() {
   return {
     saldoAwal_perlengkapan: JSON.parse(localStorage.getItem(`saldoAwal_perlengkapan_${fileName}`) || "[]"),
@@ -302,19 +289,16 @@ function getAllOpnameData() {
   };
 }
 
-// Fungsi untuk update file di cloud (sinkron otomatis)
 async function uploadFileOpnameToCloud() {
   const data = getAllOpnameData();
   const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
   const path = `opname-files/${fileName}.json`;
-  // upsert (replace or insert)
   const { error } = await supabase.storage.from(BUCKET_NAME).upload(path, blob, { upsert: true });
   if (error) {
     console.error("Gagal sync cloud:", error.message);
   }
 }
 
-// Fungsi untuk tarik file dari cloud saat halaman dibuka
 async function syncFileOpnameFromCloud() {
   const path = `opname-files/${fileName}.json`;
   const { data, error } = await supabase.storage.from(BUCKET_NAME).download(path);
@@ -333,17 +317,12 @@ async function syncFileOpnameFromCloud() {
   }
 }
 
-// Saat halaman dibuka, sinkronisasi data dari cloud ke lokal
 syncFileOpnameFromCloud().then(()=>{
   displaySaldoAwal();
   displaySaldoAwalPs();
   refreshHasilOpname();
   refreshHasilOpnamePs();
 });
-
-// Jika ingin agar setiap perubahan data input (tambah/edit/hapus) selain upload saldo, juga otomatis sync ke cloud,
-// pastikan di halaman input-perlengkapan, input-persediaan, input-room juga memanggil uploadFileOpnameToCloud()
-// setelah perubahan data (dengan cara yang sama).
 
 </script>
 </body>
