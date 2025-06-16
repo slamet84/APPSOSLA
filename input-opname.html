@@ -3,13 +3,12 @@
 <head>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#007bff">
-  
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    
   <meta charset="UTF-8">
   <title>📋 Menu Input Opname</title>
   <link rel="stylesheet" href="style.css">
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     .btn { padding: 10px; background: #007bff; color: white; border: none; border-radius: 5px; margin: 5px; cursor: pointer; }
     .tab-nav { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; }
@@ -65,6 +64,13 @@
     <table><thead><tr><th>Kode</th><th>Nama</th><th>Saldo</th><th>Input</th><th>Selisih</th></tr></thead><tbody id="hasilOpnameTablePs"></tbody></table>
   </div>
 <script>
+// === SUPABASE SETUP ===
+const SUPABASE_URL = "https://YOUR_SUPABASE_URL.supabase.co";
+const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
+const BUCKET_NAME = "opname"; // <- nama storage bucket Anda di Supabase
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// === FILE HANDLING ===
 const fileName = decodeURIComponent(new URLSearchParams(window.location.search).get("file") || "data");
 document.getElementById("fileNameDisplay").textContent = fileName;
 document.getElementById("btnPrl").href = `input-perlengkapan.html?file=${fileName}`;
@@ -76,11 +82,11 @@ function showTab(id) {
   document.querySelectorAll(".tab-nav button").forEach(btn => btn.classList.remove("active"));
   document.getElementById(id).classList.add("active");
   event.target.classList.add("active");
-
   if (id === "hasilopname") refreshHasilOpname();
   if (id === "hasilopnameps") refreshHasilOpnamePs();
 }
 
+// ===== UTIL =====
 function normalizeKey(obj) {
   const out = {};
   for (let key in obj) {
@@ -104,6 +110,7 @@ function displaySaldoAwal() {
 function clearSaldoAwal() {
   localStorage.removeItem(`saldoAwal_perlengkapan_${fileName}`);
   displaySaldoAwal();
+  uploadFileOpnameToCloud(); // sync ke cloud
 }
 document.getElementById("uploadSaldo").addEventListener("change", function(e) {
   const reader = new FileReader();
@@ -112,6 +119,7 @@ document.getElementById("uploadSaldo").addEventListener("change", function(e) {
     const data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
     localStorage.setItem(`saldoAwal_perlengkapan_${fileName}`, JSON.stringify(data));
     displaySaldoAwal();
+    uploadFileOpnameToCloud(); // sync ke cloud
   };
   reader.readAsArrayBuffer(e.target.files[0]);
 });
@@ -129,6 +137,7 @@ function displaySaldoAwalPs() {
 function clearSaldoAwalPs() {
   localStorage.removeItem(`saldoAwal_persediaan_${fileName}`);
   displaySaldoAwalPs();
+  uploadFileOpnameToCloud(); // sync ke cloud
 }
 document.getElementById("uploadSaldoPs").addEventListener("change", function(e) {
   const reader = new FileReader();
@@ -137,6 +146,7 @@ document.getElementById("uploadSaldoPs").addEventListener("change", function(e) 
     const data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
     localStorage.setItem(`saldoAwal_persediaan_${fileName}`, JSON.stringify(data));
     displaySaldoAwalPs();
+    uploadFileOpnameToCloud(); // sync ke cloud
   };
   reader.readAsArrayBuffer(e.target.files[0]);
 });
@@ -274,6 +284,67 @@ function exportHasilOpnamePs() {
   XLSX.utils.book_append_sheet(wb, ws, "Hasil Persediaan");
   XLSX.writeFile(wb, `HasilOpnamePersediaan_${fileName}.xlsx`);
 }
+
+// ========================
+// === SINKRONISASI CLOUD
+// ========================
+// Semua data opname untuk file ini akan disimpan pada cloud Supabase Storage dalam satu file JSON dengan nama sesuai fileName.
+// Data yang di-sync: saldoAwal_perlengkapan, saldoAwal_persediaan, opnameData_perlengkapan, opnameData_persediaan, opnameData_room.
+
+// Fungsi untuk mendapatkan semua data opname (satu file)
+function getAllOpnameData() {
+  return {
+    saldoAwal_perlengkapan: JSON.parse(localStorage.getItem(`saldoAwal_perlengkapan_${fileName}`) || "[]"),
+    saldoAwal_persediaan: JSON.parse(localStorage.getItem(`saldoAwal_persediaan_${fileName}`) || "[]"),
+    opnameData_perlengkapan: JSON.parse(localStorage.getItem(`opnameData_perlengkapan_${fileName}`) || "[]"),
+    opnameData_persediaan: JSON.parse(localStorage.getItem(`opnameData_persediaan_${fileName}`) || "[]"),
+    opnameData_room: JSON.parse(localStorage.getItem(`opnameData_room_${fileName}`) || "[]")
+  };
+}
+
+// Fungsi untuk update file di cloud (sinkron otomatis)
+async function uploadFileOpnameToCloud() {
+  const data = getAllOpnameData();
+  const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
+  const path = `opname-files/${fileName}.json`;
+  // upsert (replace or insert)
+  const { error } = await supabase.storage.from(BUCKET_NAME).upload(path, blob, { upsert: true });
+  if (error) {
+    console.error("Gagal sync cloud:", error.message);
+  }
+}
+
+// Fungsi untuk tarik file dari cloud saat halaman dibuka
+async function syncFileOpnameFromCloud() {
+  const path = `opname-files/${fileName}.json`;
+  const { data, error } = await supabase.storage.from(BUCKET_NAME).download(path);
+  if (!error && data) {
+    try {
+      const text = await data.text();
+      const obj = JSON.parse(text);
+      if (obj.saldoAwal_perlengkapan) localStorage.setItem(`saldoAwal_perlengkapan_${fileName}`, JSON.stringify(obj.saldoAwal_perlengkapan));
+      if (obj.saldoAwal_persediaan) localStorage.setItem(`saldoAwal_persediaan_${fileName}`, JSON.stringify(obj.saldoAwal_persediaan));
+      if (obj.opnameData_perlengkapan) localStorage.setItem(`opnameData_perlengkapan_${fileName}`, JSON.stringify(obj.opnameData_perlengkapan));
+      if (obj.opnameData_persediaan) localStorage.setItem(`opnameData_persediaan_${fileName}`, JSON.stringify(obj.opnameData_persediaan));
+      if (obj.opnameData_room) localStorage.setItem(`opnameData_room_${fileName}`, JSON.stringify(obj.opnameData_room));
+    } catch (e) {
+      // ignore
+    }
+  }
+}
+
+// Saat halaman dibuka, sinkronisasi data dari cloud ke lokal
+syncFileOpnameFromCloud().then(()=>{
+  displaySaldoAwal();
+  displaySaldoAwalPs();
+  refreshHasilOpname();
+  refreshHasilOpnamePs();
+});
+
+// Jika ingin agar setiap perubahan data input (tambah/edit/hapus) selain upload saldo, juga otomatis sync ke cloud,
+// pastikan di halaman input-perlengkapan, input-persediaan, input-room juga memanggil uploadFileOpnameToCloud()
+// setelah perubahan data (dengan cara yang sama).
+
 </script>
 </body>
 </html>
