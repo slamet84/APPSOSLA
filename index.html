@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  
+    
   <script>
     if (localStorage.getItem("login") !== "true") {
       window.location.href = "login.html";
@@ -36,7 +36,12 @@
     <h2>📂 Daftar File Opname</h2>
     <ul id="fileList" class="file-list"></ul>
   </div>
-
+  
+  <!-- Tambahkan footer dengan link Privacy Policy -->
+  <footer style="text-align:center; margin-top:2rem;">
+    <a href="privacy-policy.html">Privacy Policy</a>
+  </footer>
+  
     <script>
     function logout() {
       // Jika pakai localStorage
