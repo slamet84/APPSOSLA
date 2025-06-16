@@ -7,6 +7,7 @@
   <meta charset="UTF-8" />
   <title>📦 Master Inventory</title>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
   <style>
     body { font-family: sans-serif; margin: 20px; }
     .tab { display: none; }
@@ -84,6 +85,32 @@
   </div>
 
 <script>
+/** --- SUPABASE KONFIGURASI --- */
+// Ganti dengan project Supabase Anda!
+const SUPABASE_URL = 'https://yxwxqlufyzxroomjbuqh.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl4d3hxbHVmeXp4cm9vbWpidXFoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAwNDYxNDUsImV4cCI6MjA2NTYyMjE0NX0.wIlqtvkERpdHPaGyg8JufZL10M1noTi6hvTD6HPC36Q';
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const BUCKET_NAME = 'uploads'; // ganti jika pakai bucket lain
+
+async function uploadDataToCloud(type) {
+  const key = "masterItems_" + type;
+  const jsonData = localStorage.getItem(key) || "[]";
+  const blob = new Blob([jsonData], { type: "application/json" });
+  const cloudPath = `master-inventory/${key}.json`;
+
+  // Upload/replace file di cloud
+  const { error } = await supabase
+    .storage
+    .from(BUCKET_NAME)
+    .upload(cloudPath, blob, { upsert: true });
+
+  if (error) {
+    // Optional: tampilkan alert jika ingin tahu jika gagal
+    console.error(`Gagal upload ${type} ke cloud:`, error.message);
+  }
+}
+
+/** --- UI & LOGIKA --- */
 function switchTab(id) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.tab-buttons button').forEach(b => b.classList.remove('active'));
@@ -116,6 +143,7 @@ function tambahItem(type) {
   const data = JSON.parse(localStorage.getItem(key) || "[]");
   data.push({ kode, nama, satuan });
   localStorage.setItem(key, JSON.stringify(data));
+  uploadDataToCloud(type); // Upload ke cloud setiap ada perubahan
   loadData();
 }
 
@@ -125,6 +153,7 @@ function hapusItem(type, index) {
   if (confirm("Yakin ingin menghapus?")) {
     data.splice(index, 1);
     localStorage.setItem(key, JSON.stringify(data));
+    uploadDataToCloud(type); // Upload ke cloud setiap ada perubahan
     loadData();
   }
 }
@@ -163,7 +192,7 @@ function importFromExcel(event, type) {
   const file = event.target.files[0];
   if (!file) return;
   const reader = new FileReader();
-  reader.onload = function(e) {
+  reader.onload = async function(e) {
     const workbook = XLSX.read(e.target.result, { type: "array" });
     const data = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { defval: "" });
     const formatted = data.map(row => ({
@@ -172,6 +201,7 @@ function importFromExcel(event, type) {
       satuan: row.satuan || row.Satuan || "-"
     })).filter(row => row.kode && row.nama);
     localStorage.setItem("masterItems_" + type, JSON.stringify(formatted));
+    await uploadDataToCloud(type); // Upload ke cloud setiap ada perubahan
     loadData();
   };
   reader.readAsArrayBuffer(file);
