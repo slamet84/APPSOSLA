@@ -1,49 +1,230 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8">
-  <title>Master Inventory - APPSOSLA</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#007bff">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <meta charset="UTF-8" />
+  <title>📦 Master Inventory</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
-    body {background: #e6f7fa; font-family: Arial;}
-    .container {max-width: 700px; margin: 36px auto; background: #fff; border-radius: 16px; box-shadow:0 2px 10px #0002; padding:2rem;}
-    h1 {color: #00806a;}
-    table {border-collapse:collapse;width:100%;margin-top:1.5rem;}
-    th,td {border:1px solid #aaa;padding:10px;font-size:1rem;}
-    th {background:#f2f9fa;}
-    a.btn {display:inline-block;background:#00806a;color:#fff;padding:8px 18px;border-radius:6px;text-decoration:none;margin-bottom:1.5rem;}
-    a.btn:hover {background:#00594c;}
+    body { font-family: sans-serif; margin: 20px; }
+    .tab { display: none; }
+    .tab.active { display: block; }
+    .tab-buttons button.active { background: #007bff; color: white; }
+    .tab-buttons button { margin-right: 10px; padding: 10px; }
+    table { width: 100%; margin-top: 10px; border-collapse: collapse; }
+    th, td { border: 1px solid #ccc; padding: 8px; }
+    .btn-group { margin-top: 10px; }
+    .btn { display: inline-block; margin-bottom: 15px; padding: 10px; background: #007bff; color: white; border-radius: 5px; text-decoration: none; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <a href="index.html" class="btn">&larr; Kembali</a>
-    <h1>Master Inventory</h1>
-    <!-- Contoh tabel -->
+  <h1>📦 Master Inventory</h1>
+  <a href="index.html" class="btn">← Kembali ke Dashboard</a>
+
+  <div class="tab-buttons">
+    <button onclick="switchTab('perlengkapan')" class="active">🧾 Perlengkapan</button>
+    <button onclick="switchTab('persediaan')">📦 Persediaan</button>
+    <button onclick="switchTab('lokasiPrl')">🧭 Lokasi Perlengkapan</button>
+    <button onclick="switchTab('lokasiRoom')">🏠 Lokasi Room</button>
+  </div>
+
+  <!-- Tab Perlengkapan -->
+  <div id="perlengkapan" class="tab active">
+    <h2>🧾 Data Perlengkapan</h2>
+    <input type="text" id="kodePrl" placeholder="Kode">
+    <input type="text" id="namaPrl" placeholder="Nama Barang">
+    <input type="text" id="satuanPrl" placeholder="Satuan">
+    <button onclick="tambahItem('perlengkapan')">Tambah</button>
+    <div class="btn-group">
+      <button onclick="exportToExcel('perlengkapan')">⬇️ Export Excel</button>
+      <input type="file" id="importPrl" accept=".xlsx">
+    </div>
     <table>
-      <thead>
-        <tr>
-          <th>No</th>
-          <th>Kode Barang</th>
-          <th>Nama Barang</th>
-          <th>Jumlah</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>1</td>
-          <td>INV001</td>
-          <td>Laptop</td>
-          <td>10</td>
-        </tr>
-        <tr>
-          <td>2</td>
-          <td>INV002</td>
-          <td>Printer</td>
-          <td>5</td>
-        </tr>
-        <!-- Tambah baris sesuai kebutuhan -->
-      </tbody>
+      <thead><tr><th>Kode</th><th>Nama</th><th>Satuan</th><th>Aksi</th></tr></thead>
+      <tbody id="tabelPrl"></tbody>
     </table>
   </div>
+
+  <!-- Tab Persediaan -->
+  <div id="persediaan" class="tab">
+    <h2>📦 Data Persediaan</h2>
+    <input type="text" id="kodePs" placeholder="Kode">
+    <input type="text" id="namaPs" placeholder="Nama Barang">
+    <input type="text" id="satuanPs" placeholder="Satuan">
+    <button onclick="tambahItem('persediaan')">Tambah</button>
+    <div class="btn-group">
+      <button onclick="exportToExcel('persediaan')">⬇️ Export Excel</button>
+      <input type="file" id="importPs" accept=".xlsx">
+    </div>
+    <table>
+      <thead><tr><th>Kode</th><th>Nama</th><th>Satuan</th><th>Aksi</th></tr></thead>
+      <tbody id="tabelPs"></tbody>
+    </table>
+  </div>
+
+  <!-- Tab Lokasi Perlengkapan -->
+  <div id="lokasiPrl" class="tab">
+    <h2>🧭 Lokasi Perlengkapan</h2>
+    <input type="text" id="inputLokasiPrl" placeholder="Nama Lokasi">
+    <button onclick="tambahLokasi('perlengkapan')">Tambah Lokasi</button>
+    <ul id="daftarLokasiPrl" class="lokasi-list"></ul>
+  </div>
+
+  <!-- Tab Lokasi Room -->
+  <div id="lokasiRoom" class="tab">
+    <h2>🏠 Lokasi Room</h2>
+    <input type="text" id="inputLokasiRoom" placeholder="Nama Lokasi">
+    <button onclick="tambahLokasi('room')">Tambah Lokasi</button>
+    <ul id="daftarLokasiRoom" class="lokasi-list"></ul>
+  </div>
+
+<script>
+function switchTab(id) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-buttons button').forEach(b => b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.querySelector(`.tab-buttons button[onclick*="${id}"]`)?.classList.add('active');
+  loadData();
+}
+
+function loadData() {
+  renderData("perlengkapan", "tabelPrl");
+  renderData("persediaan", "tabelPs");
+  renderLokasi("perlengkapan");
+  renderLokasi("room");
+}
+
+function renderData(type, tableId) {
+  const data = JSON.parse(localStorage.getItem("masterItems_" + type) || "[]");
+  document.getElementById(tableId).innerHTML = data.map((item, i) =>
+    `<tr><td>${item.kode}</td><td>${item.nama}</td><td>${item.satuan || '-'}</td><td><button onclick="hapusItem('${type}',${i})">❌</button></td></tr>`
+  ).join("");
+}
+
+function tambahItem(type) {
+  const kode = document.getElementById(type === 'perlengkapan' ? 'kodePrl' : 'kodePs').value.trim();
+  const nama = document.getElementById(type === 'perlengkapan' ? 'namaPrl' : 'namaPs').value.trim();
+  const satuan = document.getElementById(type === 'perlengkapan' ? 'satuanPrl' : 'satuanPs').value.trim();
+  if (!kode || !nama) return alert("Lengkapi kode dan nama.");
+
+  const key = "masterItems_" + type;
+  const data = JSON.parse(localStorage.getItem(key) || "[]");
+  data.push({ kode, nama, satuan });
+  localStorage.setItem(key, JSON.stringify(data));
+  loadData();
+}
+
+function hapusItem(type, index) {
+  const key = "masterItems_" + type;
+  const data = JSON.parse(localStorage.getItem(key) || "[]");
+  if (confirm("Yakin ingin menghapus?")) {
+    data.splice(index, 1);
+    localStorage.setItem(key, JSON.stringify(data));
+    loadData();
+  }
+}
+
+function hapusItem(type, index) {
+  const key = "lokasi_perlengkapan" + type;
+  const data = JSON.parse(localStorage.getItem(key) || "[]");
+  if (confirm("Yakin ingin menghapus?")) {
+    data.splice(index, 1);
+    localStorage.setItem(key, JSON.stringify(data));
+    loadData();
+  }
+}
+
+function hapusLokasi(type, index) {
+  const key = "lokasi_" + type;
+  const data = JSON.parse(localStorage.getItem(key) || "[]");
+  if (confirm("Yakin hapus lokasi ini?")) {
+    data.splice(index, 1);
+    localStorage.setItem(key, JSON.stringify(data));
+    renderLokasi(type);
+  }
+}
+
+function editLokasi(type, index) {
+  const key = "lokasi_" + type;
+  const data = JSON.parse(localStorage.getItem(key) || "[]");
+  const baru = prompt("Edit nama lokasi:", data[index]);
+  if (baru !== null && baru.trim() !== "") {
+    data[index] = baru.trim();
+    localStorage.setItem(key, JSON.stringify(data));
+    renderLokasi(type);
+  }
+}
+
+function exportToExcel(type) {
+  const data = JSON.parse(localStorage.getItem("masterItems_" + type) || "[]");
+  if (data.length === 0) return alert("Tidak ada data.");
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Data");
+  XLSX.writeFile(wb, `MasterItems_${type}.xlsx`);
+}
+
+function importFromExcel(event, type) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const workbook = XLSX.read(e.target.result, { type: "array" });
+    const data = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { defval: "" });
+    const formatted = data.map(row => ({
+      kode: row.kode || row.Kode,
+      nama: row.nama || row.Nama,
+      satuan: row.satuan || row.Satuan || "-"
+    })).filter(row => row.kode && row.nama);
+    localStorage.setItem("masterItems_" + type, JSON.stringify(formatted));
+    loadData();
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+document.getElementById("importPrl").addEventListener("change", e => importFromExcel(e, "perlengkapan"));
+document.getElementById("importPs").addEventListener("change", e => importFromExcel(e, "persediaan"));
+
+function tambahLokasi(type) {
+  const inputId = type === 'perlengkapan' ? 'inputLokasiPrl' :
+                  type === 'room' ? 'inputLokasiRoom' : '';
+  const listId = type === 'perlengkapan' ? 'daftarLokasiPrl' :
+                 type === 'room' ? 'daftarLokasiRoom' : '';
+  if (!inputId || !listId) return;
+
+  const nama = document.getElementById(inputId).value.trim();
+  if (!nama) return;
+
+  const key = "lokasi_" + type;
+  const data = JSON.parse(localStorage.getItem(key) || "[]");
+  data.push(nama);
+  localStorage.setItem(key, JSON.stringify(data));
+  renderLokasi(type);
+  document.getElementById(inputId).value = "";
+}
+
+function renderLokasi(type) {
+  const key = "lokasi_" + type;
+  const listId = type === 'perlengkapan' ? 'daftarLokasiPrl' :
+                 type === 'room' ? 'daftarLokasiRoom' : '';
+  if (!listId) return;
+
+  const data = JSON.parse(localStorage.getItem(key) || "[]");
+  const list = document.getElementById(listId);
+  list.innerHTML = data.map((loc, i) =>
+    `<li>
+      ${loc}
+      <button onclick="editLokasi('${type}', ${i})">✏️</button>
+      <button onclick="hapusLokasi('${type}', ${i})">🗑️</button>
+    </li>`
+  ).join("");
+}
+
+loadData();
+</script>
 </body>
 </html>
