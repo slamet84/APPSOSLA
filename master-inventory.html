@@ -97,16 +97,26 @@ async function uploadDataToCloud(type) {
   const jsonData = localStorage.getItem(key) || "[]";
   const blob = new Blob([jsonData], { type: "application/json" });
   const cloudPath = `master-inventory/${key}.json`;
-
-  // Upload/replace file di cloud
   const { error } = await supabase
     .storage
     .from(BUCKET_NAME)
     .upload(cloudPath, blob, { upsert: true });
-
   if (error) {
-    // Optional: tampilkan alert jika ingin tahu jika gagal
     console.error(`Gagal upload ${type} ke cloud:`, error.message);
+  }
+}
+
+async function uploadLokasiToCloud(type) {
+  const key = "lokasi_" + type;
+  const jsonData = localStorage.getItem(key) || "[]";
+  const blob = new Blob([jsonData], { type: "application/json" });
+  const cloudPath = `master-inventory/${key}.json`;
+  const { error } = await supabase
+    .storage
+    .from(BUCKET_NAME)
+    .upload(cloudPath, blob, { upsert: true });
+  if (error) {
+    console.error(`Gagal upload lokasi ${type} ke cloud:`, error.message);
   }
 }
 
@@ -143,7 +153,7 @@ function tambahItem(type) {
   const data = JSON.parse(localStorage.getItem(key) || "[]");
   data.push({ kode, nama, satuan });
   localStorage.setItem(key, JSON.stringify(data));
-  uploadDataToCloud(type); // Upload ke cloud setiap ada perubahan
+  uploadDataToCloud(type);
   loadData();
 }
 
@@ -153,7 +163,7 @@ function hapusItem(type, index) {
   if (confirm("Yakin ingin menghapus?")) {
     data.splice(index, 1);
     localStorage.setItem(key, JSON.stringify(data));
-    uploadDataToCloud(type); // Upload ke cloud setiap ada perubahan
+    uploadDataToCloud(type);
     loadData();
   }
 }
@@ -164,6 +174,7 @@ function hapusLokasi(type, index) {
   if (confirm("Yakin hapus lokasi ini?")) {
     data.splice(index, 1);
     localStorage.setItem(key, JSON.stringify(data));
+    uploadLokasiToCloud(type);
     renderLokasi(type);
   }
 }
@@ -175,6 +186,7 @@ function editLokasi(type, index) {
   if (baru !== null && baru.trim() !== "") {
     data[index] = baru.trim();
     localStorage.setItem(key, JSON.stringify(data));
+    uploadLokasiToCloud(type);
     renderLokasi(type);
   }
 }
@@ -201,7 +213,7 @@ function importFromExcel(event, type) {
       satuan: row.satuan || row.Satuan || "-"
     })).filter(row => row.kode && row.nama);
     localStorage.setItem("masterItems_" + type, JSON.stringify(formatted));
-    await uploadDataToCloud(type); // Upload ke cloud setiap ada perubahan
+    await uploadDataToCloud(type);
     loadData();
   };
   reader.readAsArrayBuffer(file);
@@ -228,6 +240,7 @@ function tambahLokasi(type) {
   const data = JSON.parse(localStorage.getItem(key) || "[]");
   data.push(nama);
   localStorage.setItem(key, JSON.stringify(data));
+  uploadLokasiToCloud(type);
   renderLokasi(type);
   document.getElementById(inputId).value = "";
 }
