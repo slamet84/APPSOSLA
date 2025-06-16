@@ -15,12 +15,8 @@
     .btn:hover { background: #00594c;}
     .file-list { margin: .5rem 0 0 0; padding:0; list-style:none;}
     .file-list li { margin: 0 0 1rem 0; padding: 12px 14px; background: #f2f9fa; border-radius: 7px; border-left: 5px solid #ffc107; font-size: 1rem;}
-    .progress { color: #00806a; margin-top:.5rem;}
-    .url { color: #00594c; }
     h2 { margin-top:2rem;color:#00806a; }
     .logout-btn { background-color:red; color:white; border:none; padding:10px 20px; border-radius:6px; font-size:1rem;}
-    .export-btn { background: #007bff; color: #fff; border: none; border-radius: 6px; padding: 10px 18px; font-size: 1rem; margin-bottom: 1rem; cursor: pointer;}
-    .export-btn:hover { background: #0056b3;}
     @media (max-width:600px) { .container { padding:1rem;} .btn { padding: 12px 8px; margin: 5px 3px;}}
   </style>
 </head>
@@ -34,125 +30,68 @@
       <a href="master-inventory.html" class="btn">📁 Master Inventory</a>
       <a href="create-file.html" class="btn">➕ Buat File Baru</a>
     </div>
-    <!-- Daftar File Opname -->
+    <!-- Daftar File Opname dari Cloud -->
     <h2>📂 Daftar File Opname</h2>
     <ul id="fileList" class="file-list"></ul>
+    <div id="fileError" style="color:red;"></div>
   </div>
   <footer style="text-align:center; margin-top:2rem;">
     <a href="privacy-policy.html">Privacy Policy</a>
   </footer>
   <script>
-    // Proteksi halaman: cek session Supabase
+    // Supabase config
     const SUPABASE_URL = 'https://yxwxqlufyzxroomjbuqh.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl4d3hxbHVmeXp4cm9vbWpidXFoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAwNDYxNDUsImV4cCI6MjA2NTYyMjE0NX0.wIlqtvkERpdHPaGyg8JufZL10M1noTi6hvTD6HPC36Q';
+    const BUCKET_NAME = 'uploads';
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // Proteksi halaman: cek session Supabase
     document.addEventListener('DOMContentLoaded', async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         window.location.href = "login.html";
+      } else {
+        loadCloudFiles();
       }
     });
 
-    // --- Ganti sesuai project Supabase Anda ---
-    const BUCKET_NAME = 'uploads'; // Nama bucket di Supabase Storage
+    // Tampilkan daftar file opname dari Supabase Storage (cloud)
+    async function loadCloudFiles() {
+      const fileList = document.getElementById("fileList");
+      const fileError = document.getElementById("fileError");
+      fileError.textContent = "";
+      fileList.innerHTML = "<li>Mengambil data file dari cloud...</li>";
 
-    // --- Upload File ke Supabase & Simpan Metadata ke Lokal ---
-    document.getElementById('fileInput').addEventListener('change', async (e) => {
-      const fileInput = document.getElementById('fileInput');
-      const file = fileInput.files[0];
-      if (!file) return;
-      await uploadAndSaveMeta(file, file.name);
-      fileInput.value = "";
-    });
-
-    // Fungsi utama upload file apapun ke Supabase dan simpan metadata
-    async function uploadAndSaveMeta(fileBlob, fileName) {
-      const progress = document.getElementById('progress');
-      const fileUrl = document.getElementById('fileUrl');
-      progress.textContent = 'Uploading...';
-      fileUrl.textContent = '';
-
-      const path = `user-files/${Date.now()}-${encodeURIComponent(fileName)}`;
+      // Ambil daftar file dari folder user-files di bucket
       const { data, error } = await supabase
         .storage
         .from(BUCKET_NAME)
-        .upload(path, fileBlob);
+        .list("user-files", { limit: 100, offset: 0 });
+
+      fileList.innerHTML = "";
 
       if (error) {
-        progress.textContent = 'Gagal upload: ' + error.message;
+        fileError.textContent = "Gagal mengambil daftar file cloud.";
+        return;
+      }
+      if (!data || data.length === 0) {
+        fileList.innerHTML = "<p>Belum ada file opname di cloud.</p>";
         return;
       }
 
-      // Dapatkan public URL
-      const { data: publicData } = supabase
-        .storage
-        .from(BUCKET_NAME)
-        .getPublicUrl(path);
+      // Urutkan file (terbaru di atas jika possible)
+      data.sort((a,b) => b.created_at && a.created_at ? (new Date(b.created_at)-new Date(a.created_at)) : 0);
 
-      progress.textContent = 'Upload berhasil!';
-      fileUrl.innerHTML = `Public URL: <a href="${publicData.publicUrl}" target="_blank">${publicData.publicUrl}</a>`;
-
-      // Simpan metadata file ke localStorage
-      const files = JSON.parse(localStorage.getItem("stockOpnameFiles")) || [];
-      const now = new Date();
-      const tanggal = now.toLocaleDateString("id-ID") + " " + now.toLocaleTimeString("id-ID");
-      files.push({
-        name: fileName,
-        date: tanggal,
-        publicUrl: publicData.publicUrl
-      });
-      localStorage.setItem("stockOpnameFiles", JSON.stringify(files));
-      loadFiles();
-      setTimeout(() => {progress.textContent = ""; fileUrl.textContent = "";}, 3500);
-    }
-
-    // --- Tampilkan Daftar File ---
-    function loadFiles() {
-      const fileList = document.getElementById("fileList");
-      const files = JSON.parse(localStorage.getItem("stockOpnameFiles")) || [];
-      fileList.innerHTML = "";
-      if (files.length === 0) {
-        fileList.innerHTML = "<p>Belum ada file dibuat.</p>";
-        return;
-      }
-      files.slice().reverse().forEach((file, index) => {
+      data.forEach(file => {
+        // Dapatkan public URL
+        const publicUrl = supabase.storage.from(BUCKET_NAME).getPublicUrl('user-files/' + file.name).data.publicUrl;
         const li = document.createElement("li");
         li.innerHTML = `
           <strong>${file.name}</strong><br/>
-          <small>Tanggal: ${file.date}</small><br/>
-          <a href="${file.publicUrl}" target="_blank" style="color:blue;">Lihat di Cloud</a>
+          <a href="${publicUrl}" target="_blank" style="color:blue;">Lihat di Cloud</a>
         `;
         fileList.appendChild(li);
       });
-    }
-    window.onload = () => { loadFiles(); };
-
-    // --- SIMULASI: Fungsi Buat File Baru (CSV) & Upload Otomatis ---
-    function buatFileBaru() {
-      // Data dummy, ganti dengan hasil opname asli jika ada
-      const rows = [
-        ["No", "Kode", "Nama Barang", "Jumlah"],
-        ["1", "INV001", "Laptop", "10"],
-        ["2", "INV002", "Printer", "5"]
-      ];
-      const csvContent = rows.map(e=>e.join(",")).join("\n");
-      const blob = new Blob([csvContent], {type: "text/csv"});
-      const namaFile = "opname-" + new Date().toISOString().slice(0,10) + ".csv";
-      uploadAndSaveMeta(blob, namaFile);
-    }
-
-    // --- SIMULASI: Fungsi Export Dummy Data (CSV) & Upload Otomatis ---
-    function exportDummyCSV() {
-      // Data dummy, ganti dengan hasil export asli jika perlu
-      const rows = [
-        ["No", "Kode", "Nama Barang", "Jumlah"],
-        ["1", "INV001", "Laptop", "10"],
-        ["2", "INV002", "Printer", "5"]
-      ];
-      const csvContent = rows.map(e=>e.join(",")).join("\n");
-      const blob = new Blob([csvContent], {type: "text/csv"});
-      const namaFile = "export-opname-" + new Date().toISOString().slice(0,10) + ".csv";
-      uploadAndSaveMeta(blob, namaFile);
     }
 
     // Logout dengan Supabase Auth
