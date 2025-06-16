@@ -86,7 +86,6 @@
 
 <script>
 /** --- SUPABASE KONFIGURASI --- */
-// Ganti dengan project Supabase Anda!
 const SUPABASE_URL = 'https://yxwxqlufyzxroomjbuqh.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl4d3hxbHVmeXp4cm9vbWpidXFoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAwNDYxNDUsImV4cCI6MjA2NTYyMjE0NX0.wIlqtvkERpdHPaGyg8JufZL10M1noTi6hvTD6HPC36Q';
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -117,6 +116,36 @@ async function uploadLokasiToCloud(type) {
     .upload(cloudPath, blob, { upsert: true });
   if (error) {
     console.error(`Gagal upload lokasi ${type} ke cloud:`, error.message);
+  }
+}
+
+// Sinkronisasi data cloud ke localStorage saat pertama buka aplikasi
+async function syncCloudToLocal() {
+  // Data master
+  const types = ["perlengkapan", "persediaan"];
+  for (const type of types) {
+    const cloudPath = `master-inventory/masterItems_${type}.json`;
+    const { data, error } = await supabase
+      .storage
+      .from(BUCKET_NAME)
+      .download(cloudPath);
+    if (!error && data) {
+      const text = await data.text();
+      try { JSON.parse(text); localStorage.setItem("masterItems_" + type, text); } catch(e){}
+    }
+  }
+  // Data lokasi
+  const lokasiTypes = ["perlengkapan", "room"];
+  for (const type of lokasiTypes) {
+    const cloudPath = `master-inventory/lokasi_${type}.json`;
+    const { data, error } = await supabase
+      .storage
+      .from(BUCKET_NAME)
+      .download(cloudPath);
+    if (!error && data) {
+      const text = await data.text();
+      try { JSON.parse(text); localStorage.setItem("lokasi_" + type, text); } catch(e){}
+    }
   }
 }
 
@@ -219,10 +248,11 @@ function importFromExcel(event, type) {
   reader.readAsArrayBuffer(file);
 }
 
-// Pastikan event listener dipasang setelah DOM siap
-document.addEventListener("DOMContentLoaded", function() {
+// Sinkronisasi cloud ke localStorage saat aplikasi dibuka
+document.addEventListener("DOMContentLoaded", async function() {
   document.getElementById("importPrl").addEventListener("change", e => importFromExcel(e, "perlengkapan"));
   document.getElementById("importPs").addEventListener("change", e => importFromExcel(e, "persediaan"));
+  await syncCloudToLocal();
   loadData();
 });
 
