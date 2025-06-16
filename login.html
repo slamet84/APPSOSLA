@@ -1,45 +1,31 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Login Google - Stock Opname</title>
+  <meta charset="UTF-8">
+  <title>Login - APPSOSLA</title>
 </head>
 <body>
-  <h2>🔐 Login dengan Google</h2>
-  <button id="loginBtn">Login via Google</button>
-
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getAuth, signInWithPopup, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyC0EuYKCUqHpQOOSfZQvyIDwmwev0OLxlE",
-      authDomain: "appsosla-01.firebaseapp.com",
-      projectId: "appsosla-01",
-      storageBucket: "appsosla-01.firebasestorage.app",
-      messagingSenderId: "487168194946",
-      appId: "1:487168194946:web:cd6e2bdbad6bc18b86b79b",
-      measurementId: "G-1LXNJ4XVKG"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const provider = new GoogleAuthProvider();
-
-    document.getElementById("loginBtn").addEventListener("click", async () => {
-      try {
-        const result = await signInWithPopup(auth, provider);
-        const user = result.user;
-        console.log("Login sukses:", user.displayName);
+  <h2>Login</h2>
+  <form id="loginForm">
+    <input type="text" id="username" placeholder="Username" required><br>
+    <input type="password" id="password" placeholder="Password" required><br>
+    <button type="submit">Login</button>
+  </form>
+  <div id="error" style="color:red;"></div>
+  <script>
+    document.getElementById('loginForm').onsubmit = function(e) {
+      e.preventDefault();
+      const username = document.getElementById('username').value;
+      const password = document.getElementById('password').value;
+      // Ganti user/pass sesuai kebutuhan Anda
+      if (username === "admin" && password === "opname123") {
         localStorage.setItem("login", "true");
-        localStorage.setItem("userEmail", user.email);
+        localStorage.setItem("userEmail", username);
         window.location.href = "index.html";
-      } catch (error) {
-        alert("Login gagal: " + error.message);
-        console.error(error);
+      } else {
+        document.getElementById('error').textContent = "Username/password salah!";
       }
-    });
+    }
   </script>
 </body>
 </html>
