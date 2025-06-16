@@ -153,7 +153,6 @@ document.getElementById("uploadSaldoPs").addEventListener("change", function(e) 
 displaySaldoAwalPs();
 
 // ===== HASIL OPNAME PERLENGKAPAN =====
-// Hanya tampilkan yang ada di saldo awal
 function refreshHasilOpname() {
   const saldo = (JSON.parse(localStorage.getItem(`saldoAwal_perlengkapan_${fileName}`)) || []).map(normalizeKey);
   const input1 = JSON.parse(localStorage.getItem(`opnameData_perlengkapan_${fileName}`) || "[]");
@@ -168,7 +167,10 @@ function refreshHasilOpname() {
     total[item.kode].lokasi[lok] = (total[item.kode].lokasi[lok] || 0) + parseInt(item.stokFisik || 0);
   });
 
+  // Gabungkan kode dari saldo awal & input opname
   const hasil = {};
+
+  // Masukkan semua dari saldo awal
   saldo.forEach(item => {
     hasil[item.kode] = {
       kode: item.kode,
@@ -180,7 +182,19 @@ function refreshHasilOpname() {
     hasil[item.kode].selisih = hasil[item.kode].saldoAwal - hasil[item.kode].totalInput;
   });
 
-  // Tidak perlu memasukkan kode yang tidak ada di saldo awal (hapus bagian Object.keys(total))
+  // Masukkan kode yang hanya ada di input opname, tapi belum ada di saldo awal
+  Object.keys(total).forEach(kode => {
+    if (!hasil[kode]) {
+      hasil[kode] = {
+        kode,
+        nama: total[kode].nama,
+        saldoAwal: 0,
+        totalInput: total[kode].jumlah,
+        selisih: 0 - total[kode].jumlah,
+        lokasi: total[kode].lokasi
+      };
+    }
+  });
 
   const tbody = document.getElementById("hasilOpnameTable");
   tbody.innerHTML = Object.values(hasil).map(r =>
@@ -219,7 +233,6 @@ function exportHasilOpname() {
 }
 
 // ===== HASIL OPNAME PERSEDIAAN =====
-// Nama barang bisa di-klik untuk melihat lokasi, tampilkan hanya yang ada di saldo awal
 function refreshHasilOpnamePs() {
   const saldo = (JSON.parse(localStorage.getItem(`saldoAwal_persediaan_${fileName}`)) || []).map(normalizeKey);
   const input = JSON.parse(localStorage.getItem(`opnameData_persediaan_${fileName}`) || "[]");
@@ -228,12 +241,14 @@ function refreshHasilOpnamePs() {
   input.forEach(item => {
     if (!total[item.kode]) total[item.kode] = { jumlah: 0, nama: item.nama, lokasi: {} };
     total[item.kode].jumlah += parseInt(item.stokFisik || 0);
-    // Data lokasi jika ada (atau default -)
     const lok = item.lokasi || "-";
     total[item.kode].lokasi[lok] = (total[item.kode].lokasi[lok] || 0) + parseInt(item.stokFisik || 0);
   });
 
+  // Gabungkan kode dari saldo awal & input opname
   const hasil = {};
+
+  // Masukkan semua dari saldo awal
   saldo.forEach(item => {
     hasil[item.kode] = {
       kode: item.kode,
@@ -245,7 +260,19 @@ function refreshHasilOpnamePs() {
     hasil[item.kode].selisih = hasil[item.kode].saldoAwal - hasil[item.kode].totalInput;
   });
 
-  // Tidak perlu data kode yang tidak ada di saldo awal
+  // Masukkan kode yang hanya ada di input opname, tapi belum ada di saldo awal
+  Object.keys(total).forEach(kode => {
+    if (!hasil[kode]) {
+      hasil[kode] = {
+        kode,
+        nama: total[kode].nama,
+        saldoAwal: 0,
+        totalInput: total[kode].jumlah,
+        selisih: 0 - total[kode].jumlah,
+        lokasi: total[kode].lokasi
+      };
+    }
+  });
 
   const tbody = document.getElementById("hasilOpnameTablePs");
   tbody.innerHTML = Object.values(hasil).map(r =>
