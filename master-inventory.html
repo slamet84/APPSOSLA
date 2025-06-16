@@ -3,9 +3,7 @@
 <head>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#007bff">
-  
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  
   <meta charset="UTF-8" />
   <title>📦 Master Inventory</title>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -18,7 +16,8 @@
     table { width: 100%; margin-top: 10px; border-collapse: collapse; }
     th, td { border: 1px solid #ccc; padding: 8px; }
     .btn-group { margin-top: 10px; }
-    .btn { display: inline-block; margin-bottom: 15px; padding: 10px; background: #007bff; color: white; border-radius: 5px; text-decoration: none; }
+    .btn { display: inline-block; margin-bottom: 15px; padding: 10px; background: #007bff; color: white; border-radius: 5px; text-decoration: none; border: none; cursor: pointer; }
+    input[type="file"] { display: none; }
   </style>
 </head>
 <body>
@@ -40,7 +39,8 @@
     <input type="text" id="satuanPrl" placeholder="Satuan">
     <button onclick="tambahItem('perlengkapan')">Tambah</button>
     <div class="btn-group">
-      <button onclick="exportToExcel('perlengkapan')">⬇️ Export Excel</button>
+      <button onclick="exportToExcel('perlengkapan')" class="btn">⬇️ Export Excel</button>
+      <label for="importPrl" class="btn">⬆️ Import Excel</label>
       <input type="file" id="importPrl" accept=".xlsx">
     </div>
     <table>
@@ -57,7 +57,8 @@
     <input type="text" id="satuanPs" placeholder="Satuan">
     <button onclick="tambahItem('persediaan')">Tambah</button>
     <div class="btn-group">
-      <button onclick="exportToExcel('persediaan')">⬇️ Export Excel</button>
+      <button onclick="exportToExcel('persediaan')" class="btn">⬇️ Export Excel</button>
+      <label for="importPs" class="btn">⬆️ Import Excel</label>
       <input type="file" id="importPs" accept=".xlsx">
     </div>
     <table>
@@ -176,8 +177,12 @@ function importFromExcel(event, type) {
   reader.readAsArrayBuffer(file);
 }
 
-document.getElementById("importPrl").addEventListener("change", e => importFromExcel(e, "perlengkapan"));
-document.getElementById("importPs").addEventListener("change", e => importFromExcel(e, "persediaan"));
+// Pastikan event listener dipasang setelah DOM siap
+document.addEventListener("DOMContentLoaded", function() {
+  document.getElementById("importPrl").addEventListener("change", e => importFromExcel(e, "perlengkapan"));
+  document.getElementById("importPs").addEventListener("change", e => importFromExcel(e, "persediaan"));
+  loadData();
+});
 
 function tambahLokasi(type) {
   const inputId = type === 'perlengkapan' ? 'inputLokasiPrl' :
@@ -213,8 +218,6 @@ function renderLokasi(type) {
     </li>`
   ).join("");
 }
-
-loadData();
 </script>
 </body>
 </html>
