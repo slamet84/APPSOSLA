@@ -55,44 +55,47 @@
       }
     });
 
-    // Tampilkan daftar file opname dari Supabase Storage (cloud)
+      // Tampilkan daftar file opname dari Supabase Storage (cloud)
     async function loadCloudFiles() {
-      const fileList = document.getElementById("fileList");
-      const fileError = document.getElementById("fileError");
-      fileError.textContent = "";
-      fileList.innerHTML = "<li>Mengambil data file dari cloud...</li>";
+  const fileList = document.getElementById("fileList");
+  const fileError = document.getElementById("fileError");
+  fileError.textContent = "";
+  fileList.innerHTML = "<li>Mengambil data file dari cloud...</li>";
 
-      // Ambil daftar file dari folder user-files di bucket
-      const { data, error } = await supabase
-        .storage
-        .from(BUCKET_NAME)
-        .list("user-files", { limit: 100, offset: 0 });
+  // Ambil daftar file dari folder user-files di bucket
+  const { data, error } = await supabase
+    .storage
+    .from(BUCKET_NAME)
+    .list("user-files", { limit: 100, offset: 0 });
 
-      fileList.innerHTML = "";
+  fileList.innerHTML = "";
 
-      if (error) {
-        fileError.textContent = "Gagal mengambil daftar file cloud.";
-        return;
-      }
-      if (!data || data.length === 0) {
-        fileList.innerHTML = "<p>Belum ada file opname di cloud.</p>";
-        return;
-      }
+  if (error) {
+    fileError.textContent = "Gagal mengambil daftar file cloud.";
+    return;
+  }
+  if (!data || data.length === 0) {
+    fileList.innerHTML = "<p>Belum ada file opname di cloud.</p>";
+    return;
+  }
 
-      // Urutkan file (terbaru di atas jika ada info tanggal)
-      data.sort((a,b) => b.created_at && a.created_at ? (new Date(b.created_at)-new Date(a.created_at)) : 0);
+  // Urutkan file (terbaru di atas jika ada info tanggal)
+  data.sort((a,b) => b.created_at && a.created_at ? (new Date(b.created_at)-new Date(a.created_at)) : 0);
 
-      data.forEach(file => {
-        // Dapatkan public URL
-        const publicUrl = supabase.storage.from(BUCKET_NAME).getPublicUrl('user-files/' + file.name).data.publicUrl;
-        const li = document.createElement("li");
-        li.innerHTML = `
-          <strong>${file.name}</strong><br/>
-          <a href="${publicUrl}" target="_blank" style="color:blue;">Lihat di Cloud</a>
-        `;
-        fileList.appendChild(li);
-      });
-    }
+  data.forEach(file => {
+    // Dapatkan public URL
+    const publicUrl = supabase.storage.from(BUCKET_NAME).getPublicUrl('user-files/' + file.name).data.publicUrl;
+    const li = document.createElement("li");
+    li.innerHTML = `
+      <a href="input-opname.html?file=${encodeURIComponent(file.name)}" style="text-decoration:none; color:#00806a; font-weight:bold;">
+        ${file.name}
+      </a>
+      <br/>
+      <a href="${publicUrl}" target="_blank" style="color:blue;">Lihat di Cloud</a>
+    `;
+    fileList.appendChild(li);
+  });
+}
 
     // Logout dengan Supabase Auth
     async function logout() {
