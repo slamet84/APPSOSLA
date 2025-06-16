@@ -128,16 +128,6 @@ function hapusItem(type, index) {
   }
 }
 
-function hapusItem(type, index) {
-  const key = "lokasi_perlengkapan" + type;
-  const data = JSON.parse(localStorage.getItem(key) || "[]");
-  if (confirm("Yakin ingin menghapus?")) {
-    data.splice(index, 1);
-    localStorage.setItem(key, JSON.stringify(data));
-    loadData();
-  }
-}
-
 function hapusLokasi(type, index) {
   const key = "lokasi_" + type;
   const data = JSON.parse(localStorage.getItem(key) || "[]");
