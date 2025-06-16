@@ -25,12 +25,6 @@
   </style>
 </head>
 <body>
-  <script>
-    // Login check sederhana, tidak ada firebase
-    if (localStorage.getItem("login") !== "true") {
-      window.location.href = "login.html";
-    }
-  </script>
   <div class="container">
     <h1>APPSOSLA</h1>
     <div style="text-align: right;">
@@ -54,18 +48,19 @@
     <a href="privacy-policy.html">Privacy Policy</a>
   </footer>
   <script>
-    function logout() {
-      localStorage.removeItem("login");
-      localStorage.removeItem("userEmail");
-      window.location.href = "login.html";    
-    }
+    // Proteksi halaman: cek session Supabase
+    const SUPABASE_URL = 'https://xxxx.supabase.co';
+    const SUPABASE_ANON_KEY = 'public-anon-key';
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    document.addEventListener('DOMContentLoaded', async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        window.location.href = "login.html";
+      }
+    });
 
     // --- Ganti sesuai project Supabase Anda ---
-    const SUPABASE_URL = 'https://xxxx.supabase.co'; // Ganti dengan URL project Anda
-    const SUPABASE_ANON_KEY = 'public-anon-key';     // Ganti dengan anon/public key Anda
-    const BUCKET_NAME = 'uploads';                   // Nama bucket di Supabase Storage
-
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const BUCKET_NAME = 'uploads'; // Nama bucket di Supabase Storage
 
     // --- Upload File ke Supabase & Simpan Metadata ke Lokal ---
     document.getElementById('fileInput').addEventListener('change', async (e) => {
@@ -164,6 +159,12 @@
       const blob = new Blob([csvContent], {type: "text/csv"});
       const namaFile = "export-opname-" + new Date().toISOString().slice(0,10) + ".csv";
       uploadAndSaveMeta(blob, namaFile);
+    }
+
+    // Logout dengan Supabase Auth
+    async function logout() {
+      await supabase.auth.signOut();
+      window.location.href = "login.html";
     }
   </script>
 </body>
