@@ -62,9 +62,7 @@
 const fileName = decodeURIComponent(new URLSearchParams(window.location.search).get("file"));
 if (!fileName) {
   alert("File opname belum dipilih! Silakan kembali ke menu utama.");
-  // Hentikan eksekusi script dan redirect
   window.location.replace("input-opname.html");
-  // Hentikan script supaya kode berikutnya benar-benar tidak jalan
   throw new Error("Stop execution: fileName kosong");
 }
 
@@ -111,12 +109,27 @@ function showFilteredItems(inputElement, listElement) {
   });
 }
 
+// === MODIFIKASI: simpan ke key umum opnameData_${fileName}, tambah kategori ===
 function loadData() {
-  return JSON.parse(localStorage.getItem(`opnameData_perlengkapan_${fileName}`)) || [];
+  const allData = JSON.parse(localStorage.getItem(`opnameData_${fileName}`)) || [];
+  return allData.filter(e => e.kategori === "Perlengkapan");
 }
 
-function saveData(data) {
-  localStorage.setItem(`opnameData_perlengkapan_${fileName}`, JSON.stringify(data));
+function saveData(entry) {
+  let allData = JSON.parse(localStorage.getItem(`opnameData_${fileName}`)) || [];
+  // Cari semua data Perlengkapan
+  const filteredIndexes = allData.map((e, idx) => e.kategori === "Perlengkapan" ? idx : -1).filter(idx => idx > -1);
+  if (editIndex > -1) {
+    // Edit data pada index yang benar di allData
+    if (filteredIndexes[editIndex] !== undefined) {
+      allData[filteredIndexes[editIndex]] = entry;
+    }
+    editIndex = -1;
+    document.getElementById("submitBtn").textContent = "💾 Simpan";
+  } else {
+    allData.push(entry);
+  }
+  localStorage.setItem(`opnameData_${fileName}`, JSON.stringify(allData));
 }
 
 function refreshTable() {
@@ -136,10 +149,13 @@ function refreshTable() {
 }
 
 function hapusBaris(index) {
-  const data = loadData();
-  data.splice(index, 1);
-  saveData(data);
-  refreshTable();
+  let allData = JSON.parse(localStorage.getItem(`opnameData_${fileName}`)) || [];
+  const filteredIndexes = allData.map((e, idx) => e.kategori === "Perlengkapan" ? idx : -1).filter(idx => idx > -1);
+  if (filteredIndexes[index] !== undefined) {
+    allData.splice(filteredIndexes[index], 1);
+    localStorage.setItem(`opnameData_${fileName}`, JSON.stringify(allData));
+    refreshTable();
+  }
 }
 
 function editBaris(index) {
@@ -180,16 +196,9 @@ document.addEventListener("DOMContentLoaded", () => {
       alert("❌ Lengkapi semua field.");
       return;
     }
-    const data = loadData();
-    const entry = { kode: item.kode, nama, lokasi, stokFisik };
-    if (editIndex > -1) {
-      data[editIndex] = entry;
-      editIndex = -1;
-      document.getElementById("submitBtn").textContent = "💾 Simpan";
-    } else {
-      data.push(entry);
-    }
-    saveData(data);
+    // Tambahkan kategori di setiap entry
+    const entry = { kategori: "Perlengkapan", kode: item.kode, nama, lokasi, stokFisik };
+    saveData(entry);
     inputBarang.value = "";
     lokasiSelect.value = "";
     stokInput.value = "";
