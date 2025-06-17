@@ -156,12 +156,15 @@ document.getElementById("uploadSaldoPs").addEventListener("change", function(e) 
 });
 displaySaldoAwalPs();
 
-// ===== HASIL OPNAME PERLENGKAPAN =====
+// ===== HASIL OPNAME PERLENGKAPAN (FIXED: now using all opnameData_${fileName}) =====
 function refreshHasilOpname() {
   const saldo = (JSON.parse(localStorage.getItem(`saldoAwal_perlengkapan_${fileName}`)) || []).map(normalizeKey);
-  const input1 = JSON.parse(localStorage.getItem(`opnameData_perlengkapan_${fileName}`) || "[]");
-  const input2 = JSON.parse(localStorage.getItem(`opnameData_room_${fileName}`) || "[]");
-  const all = [...input1, ...input2];
+
+  // AMBIL DATA OPNAME DARI KEY BARU YANG SUDAH DIGABUNG!
+  const allData = JSON.parse(localStorage.getItem(`opnameData_${fileName}`)) || [];
+  // Data kategori Perlengkapan dan Room untuk laporan hasil opname perlengkapan
+  const all = allData.filter(e => e.kategori === "Perlengkapan" || e.kategori === "Room");
+
   const total = {};
 
   all.forEach(item => {
@@ -238,10 +241,12 @@ function exportHasilOpname() {
   XLSX.writeFile(wb, `HasilOpnamePerlengkapan_${fileName}.xlsx`);
 }
 
-// ===== HASIL OPNAME PERSEDIAAN =====
+// ===== HASIL OPNAME PERSEDIAAN (JIKA SUDAH DITRANSFER KE KEY UMUM, GANTI JUGA) =====
 function refreshHasilOpnamePs() {
   const saldo = (JSON.parse(localStorage.getItem(`saldoAwal_persediaan_${fileName}`)) || []).map(normalizeKey);
-  const input = JSON.parse(localStorage.getItem(`opnameData_persediaan_${fileName}`) || "[]");
+  // Ambil data input persediaan dari key umum (kalau sudah migrasi)
+  const allData = JSON.parse(localStorage.getItem(`opnameData_${fileName}`)) || [];
+  const input = allData.filter(e => e.kategori === "Persediaan");
   const total = {};
 
   input.forEach(item => {
@@ -344,6 +349,14 @@ async function syncFileOpnameFromCloud() {
       if (obj.opnameData_perlengkapan) localStorage.setItem(`opnameData_perlengkapan_${fileName}`, JSON.stringify(obj.opnameData_perlengkapan));
       if (obj.opnameData_persediaan) localStorage.setItem(`opnameData_persediaan_${fileName}`, JSON.stringify(obj.opnameData_persediaan));
       if (obj.opnameData_room) localStorage.setItem(`opnameData_room_${fileName}`, JSON.stringify(obj.opnameData_room));
+      // Jika sudah migrasi ke satu file, update juga key opnameData_${fileName}
+      if (obj.opnameData_perlengkapan || obj.opnameData_room || obj.opnameData_persediaan) {
+        let merged = [];
+        if (obj.opnameData_perlengkapan) merged = merged.concat(obj.opnameData_perlengkapan.map(x => ({...x, kategori: "Perlengkapan"})));
+        if (obj.opnameData_room) merged = merged.concat(obj.opnameData_room.map(x => ({...x, kategori: "Room"})));
+        if (obj.opnameData_persediaan) merged = merged.concat(obj.opnameData_persediaan.map(x => ({...x, kategori: "Persediaan"})));
+        if (merged.length) localStorage.setItem(`opnameData_${fileName}`, JSON.stringify(merged));
+      }
     } catch (e) {
       // ignore
     }
