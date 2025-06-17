@@ -3,9 +3,7 @@
 <head>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#007bff">
-  
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  
   <meta charset="UTF-8">
   <title>🏠 Input Room</title>
   <link rel="stylesheet" href="style.css">
@@ -69,15 +67,21 @@
 
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>
+// ======== MODIFIKASI UNTUK SATU FILE OPNAME ========
 let editIndex = -1;
 const fileName = decodeURIComponent(new URLSearchParams(window.location.search).get("file"));
+if (!fileName) {
+  alert("File opname belum dipilih! Silakan kembali ke menu utama.");
+  window.location.replace("input-opname.html");
+  throw new Error("Stop execution: fileName kosong");
+}
 document.getElementById("fileNameDisplay").textContent = fileName;
 document.getElementById("backBtn").href += encodeURIComponent(fileName);
 
 function getAllItems() {
   return JSON.parse(localStorage.getItem("masterItems_perlengkapan")) || [];
 }
-  
+
 function loadLokasiToSelect(selectElement) {
   const lokasiList = JSON.parse(localStorage.getItem("lokasi_room")) || [];
   selectElement.innerHTML = "<option value=''>Pilih Lokasi</option>";
@@ -113,32 +117,53 @@ function showFilteredItems(inputElement, listElement) {
   });
 }
 
+// === MODIFIKASI: simpan ke key umum opnameData_${fileName}, tambah kategori ===
 function loadData() {
-  return JSON.parse(localStorage.getItem(`opnameData_room_${fileName}`)) || [];
+  const allData = JSON.parse(localStorage.getItem(`opnameData_${fileName}`)) || [];
+  return allData.filter(e => e.kategori === "Room");
 }
 
-function saveData(data) {
-  localStorage.setItem(`opnameData_room_${fileName}`, JSON.stringify(data));
+function saveData(entry) {
+  let allData = JSON.parse(localStorage.getItem(`opnameData_${fileName}`)) || [];
+  // Cari semua data Room
+  const filteredIndexes = allData.map((e, idx) => e.kategori === "Room" ? idx : -1).filter(idx => idx > -1);
+  if (editIndex > -1) {
+    // Edit data pada index yang benar di allData
+    if (filteredIndexes[editIndex] !== undefined) {
+      allData[filteredIndexes[editIndex]] = entry;
+    }
+    editIndex = -1;
+    document.getElementById("submitBtn").textContent = "💾 Simpan";
+  } else {
+    allData.push(entry);
+  }
+  localStorage.setItem(`opnameData_${fileName}`, JSON.stringify(allData));
 }
 
 function refreshTable() {
   const data = loadData();
   const table = document.getElementById("opnameTable");
-  table.innerHTML = data.map((e, i) => `<tr><td>${e.nama}</td><td>${e.lokasi}</td><td>${e.stokFisik}</td><td class='action-btns'><button onclick="editBaris(${i})">✏️</button><button onclick="hapusBaris(${i})">🗑️</button></td></tr>`).join("");
+  table.innerHTML = data.map((e, i) => 
+    `<tr>
+      <td>${e.nama}</td>
+      <td>${e.lokasi}</td>
+      <td>${e.stokFisik}</td>
+      <td class='action-btns'>
+        <button onclick="editBaris(${i})">✏️</button>
+        <button onclick="hapusBaris(${i})">🗑️</button>
+      </td>
+    </tr>`
+  ).join("");
 }
 
 function hapusBaris(index) {
-  const data = loadData();
-  data.splice(index, 1);
-  saveData(data);
-  refreshTable();
-}
-
-function isiDropdownNamaBarang() {
-  const items = JSON.parse(localStorage.getItem("masterItems_perlengkapan") || "[]");
-  const select = document.getElementById("nama");
-  select.innerHTML = '<option value="">Pilih Barang</option>' +
-    items.map(i => `<option value="${i.nama}" data-kode="${i.kode}" data-satuan="${i.satuan || ''}">${i.nama}</option>`).join("");
+  let allData = JSON.parse(localStorage.getItem(`opnameData_${fileName}`)) || [];
+  const filteredIndexes = allData.map((e, idx) => e.kategori === "Room" ? idx : -1).filter(idx => idx > -1);
+  if (filteredIndexes[index] !== undefined) {
+    allData.splice(filteredIndexes[index], 1);
+    localStorage.setItem(`opnameData_${fileName}`, JSON.stringify(allData));
+    refreshTable();
+  }
 }
 
 function editBaris(index) {
@@ -179,16 +204,9 @@ document.addEventListener("DOMContentLoaded", () => {
       alert("❌ Lengkapi semua field.");
       return;
     }
-    const data = loadData();
-    const entry = { kode: item.kode, nama, lokasi, stokFisik };
-    if (editIndex > -1) {
-      data[editIndex] = entry;
-      editIndex = -1;
-      document.getElementById("submitBtn").textContent = "💾 Simpan";
-    } else {
-      data.push(entry);
-    }
-    saveData(data);
+    // Tambahkan kategori di setiap entry
+    const entry = { kategori: "Room", kode: item.kode, nama, lokasi, stokFisik };
+    saveData(entry);
     inputBarang.value = "";
     lokasiSelect.value = "";
     stokInput.value = "";
