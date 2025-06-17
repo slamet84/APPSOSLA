@@ -2,94 +2,107 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8" />
-  <title>➕ Buat File Baru</title>
+  <title>➕ Buat File Opname Baru</title>
   <link rel="stylesheet" href="style.css" />
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    .container { max-width: 400px; margin: 40px auto; padding: 24px; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #0001;}
+    h1 { font-size: 1.5rem; margin-bottom: 1rem; }
+    label { display: block; margin-top: 1rem; }
+    input[type="text"], input[type="date"] { width: 100%; padding: 8px; margin-top: 6px; border-radius: 4px; border: 1px solid #ccc; }
+    button { margin-top: 1.2rem; padding: 10px 20px; background: #007bff; color: #fff; border: none; border-radius: 5px; cursor: pointer; }
+    button:disabled { background: #b3d1ff; }
+    .btn { display: inline-block; margin-bottom: 1rem; background: #0056b3; }
+    #progress { margin-top: 1rem; color: #00806a; }
+    #error { color: red; margin-top: 1rem; }
+  </style>
 </head>
 <body>
   <div class="container">
-    <h1>➕ Buat File Baru</h1>
+    <h1>➕ Buat File Opname Baru</h1>
     <a href="index.html" class="btn">← Kembali</a>
 
     <form id="createForm">
-      <label for="fileName">Nama File:</label>
-      <input type="text" id="fileName" required />
+      <label for="fileName">Nama Opname:</label>
+      <input type="text" id="fileName" required placeholder="Contoh: opname_gudangA" />
 
       <label for="fileDate">Tanggal Opname:</label>
       <input type="date" id="fileDate" required />
 
-      <button type="submit">💾 Simpan File</button>
+      <button type="submit" id="btnSubmit">💾 Simpan & Mulai</button>
     </form>
-    <div id="progress" style="margin-top:1rem; color:#00806a;"></div>
-    <div id="error" style="color:red;"></div>
+    <div id="progress"></div>
+    <div id="error"></div>
   </div>
 
   <script>
-    // Ganti sesuai dengan project Anda
+    // Konfigurasi Supabase
     const SUPABASE_URL = 'https://yxwxqlufyzxroomjbuqh.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl4d3hxbHVmeXp4cm9vbWpidXFoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAwNDYxNDUsImV4cCI6MjA2NTYyMjE0NX0.wIlqtvkERpdHPaGyg8JufZL10M1noTi6hvTD6HPC36Q';
     const BUCKET_NAME = 'uploads';
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // Proteksi halaman: cek session Supabase
-    document.addEventListener('DOMContentLoaded', async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        window.location.href = "login.html";
-      }
-    });
-
     document.getElementById("createForm").addEventListener("submit", async function (e) {
       e.preventDefault();
       document.getElementById("progress").textContent = "";
       document.getElementById("error").textContent = "";
+      document.getElementById("btnSubmit").disabled = true;
 
-      const fileName = document.getElementById("fileName").value.trim();
+      const fileNameRaw = document.getElementById("fileName").value.trim();
       const fileDate = document.getElementById("fileDate").value;
 
-      if (!fileName || !fileDate) {
+      if (!fileNameRaw || !fileDate) {
         alert("❌ Nama file dan tanggal harus diisi.");
+        document.getElementById("btnSubmit").disabled = false;
         return;
       }
 
-      // Format nama file unik
-      const niceFileName = `${fileName.replace(/[^a-zA-Z0-9_-]/g, "_")}-${fileDate}.csv`;
-      const path = `user-files/${Date.now()}-${niceFileName}`;
+      // Nama file konsisten (tanpa karakter aneh/spasi)
+      const cleanFileName = `${fileNameRaw.replace(/[^a-zA-Z0-9_-]/g, "_")}_${fileDate}`;
+      const path = `opname-files/${cleanFileName}.json`;
 
-      // Data CSV dummy, sesuaikan struktur jika perlu
-      const csvRows = [
-        ["No", "Kode", "Nama Barang", "Jumlah"],
-        ["1", "INV001", "Laptop", "10"],
-        ["2", "INV002", "Printer", "5"]
-      ];
-      const csvContent = csvRows.map(e => e.join(",")).join("\n");
-      const blob = new Blob([csvContent], {type: "text/csv"});
+      // Data awal kosong untuk file opname
+      const dataAwal = {
+        saldoAwal_perlengkapan: [],
+        saldoAwal_persediaan: [],
+        opnameData_merged: []
+      };
+      const blob = new Blob([JSON.stringify(dataAwal)], {type: "application/json"});
 
-      document.getElementById("progress").textContent = "Mengupload ke cloud...";
+      document.getElementById("progress").textContent = "Membuat file opname di cloud...";
 
-      // Upload ke Supabase Storage
-      const { data, error } = await supabase
+      // Cek jika file sudah ada (tidak duplikasi)
+      let { data: existing, error: errorCheck } = await supabase
         .storage
         .from(BUCKET_NAME)
-        .upload(path, blob);
+        .list('opname-files', { search: `${cleanFileName}.json` });
+
+      if (existing && existing.length > 0) {
+        document.getElementById("progress").textContent = "";
+        document.getElementById("error").textContent = "❌ File sudah ada, gunakan nama lain atau tanggal berbeda.";
+        document.getElementById("btnSubmit").disabled = false;
+        return;
+      }
+
+      // Upload file kosong ke cloud
+      const { error } = await supabase
+        .storage
+        .from(BUCKET_NAME)
+        .upload(path, blob, { upsert: false });
 
       if (error) {
         document.getElementById("progress").textContent = "";
-        document.getElementById("error").textContent = "❌ Gagal upload: " + error.message;
+        document.getElementById("error").textContent = "❌ Gagal membuat file: " + error.message;
+        document.getElementById("btnSubmit").disabled = false;
         return;
       }
 
-      // Public URL
-      const { data: publicData } = supabase
-        .storage
-        .from(BUCKET_NAME)
-        .getPublicUrl(path);
+      document.getElementById("progress").textContent = "✅ File opname berhasil dibuat. Mengalihkan ke input...";
 
-      document.getElementById("progress").textContent = "✅ File berhasil di-upload ke cloud.";
-
-      // Anda TIDAK PERLU lagi simpan ke localStorage, cukup reload/tampilkan di dashboard dari cloud
-
-      setTimeout(() => { window.location.href = "index.html"; }, 1300);
+      // Redirect ke halaman input opname dengan membawa parameter file yang benar
+      setTimeout(() => {
+        window.location.href = `input-opname.html?file=${encodeURIComponent(cleanFileName)}`;
+      }, 900);
     });
   </script>
 </body>
