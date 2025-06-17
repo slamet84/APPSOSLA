@@ -66,7 +66,7 @@
   const { data, error } = await supabase
     .storage
     .from(BUCKET_NAME)
-    .list("user-files", { limit: 100, offset: 0 });
+    .list("opname-files", { limit: 100, offset: 0 });
 
   fileList.innerHTML = "";
 
@@ -84,7 +84,7 @@
 
   data.forEach(file => {
     // Dapatkan public URL
-    const publicUrl = supabase.storage.from(BUCKET_NAME).getPublicUrl('user-files/' + file.name).data.publicUrl;
+    const publicUrl = supabase.storage.from(BUCKET_NAME).getPublicUrl('opname-files/' + file.name).data.publicUrl;
     const li = document.createElement("li");
     li.innerHTML = `
       <a href="input-opname.html?file=${encodeURIComponent(file.name)}" style="text-decoration:none; color:#00806a; font-weight:bold;">
