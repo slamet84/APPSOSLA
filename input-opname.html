@@ -197,15 +197,17 @@ function refreshHasilOpname() {
   });
 
   const tbody = document.getElementById("hasilOpnameTable");
-  tbody.innerHTML = Object.values(hasil).map(r =>
-    `<tr>
+  tbody.innerHTML = Object.values(hasil)
+  .filter(r => r.saldoAwal !== 0 || r.totalInput !== 0)
+  .map(r => `
+    <tr>
       <td>${r.kode}</td>
       <td><a href="#" onclick='showLocations(${JSON.stringify(r.lokasi)})'>${r.nama}</a></td>
       <td>${r.saldoAwal}</td>
       <td>${r.totalInput}</td>
       <td>${r.selisih}</td>
-    </tr>`
-  ).join("");
+    </tr>
+  `).join("");
 }
 
 function showLocations(lokasiObj) {
