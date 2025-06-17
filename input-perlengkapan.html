@@ -58,14 +58,17 @@
 
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>
-let editIndex = -1;
+// VALIDASI HARUS DI PALING ATAS SCRIPT
 const fileName = decodeURIComponent(new URLSearchParams(window.location.search).get("file"));
-// VALIDASI: fileName tidak boleh kosong
 if (!fileName) {
   alert("File opname belum dipilih! Silakan kembali ke menu utama.");
+  // Hentikan eksekusi script dan redirect
   window.location.replace("input-opname.html");
+  // Hentikan script supaya kode berikutnya benar-benar tidak jalan
   throw new Error("Stop execution: fileName kosong");
 }
+
+let editIndex = -1;
 document.getElementById("fileNameDisplay").textContent = fileName;
 document.getElementById("backBtn").href = "input-opname.html?file=" + encodeURIComponent(fileName);
 
