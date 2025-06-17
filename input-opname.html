@@ -22,6 +22,10 @@
 <body>
 <div class="container">
   <h1>📋 Menu Input Opname</h1>
+  <!-- Tombol sinkron cloud (download & upload) -->
+  <button class="btn" id="btnSyncDownload">⬇️ Ambil Dari Cloud</button>
+  <button class="btn" id="btnSyncUpload">⬆️ Upload ke Cloud</button>
+
   <p><strong>Nama File:</strong> <span id="fileNameDisplay"></span></p>
   <a href="index.html" class="btn">← Kembali ke Dashboard</a>
 
@@ -352,7 +356,30 @@ syncFileOpnameFromCloud().then(()=>{
   refreshHasilOpname();
   refreshHasilOpnamePs();
 });
+</script>
+<!-- ====== SCRIPT TAMBAHAN UNTUK EVENT LISTENER TOMBOL SINKRONISASI CLOUD ====== -->
+<script>
+document.getElementById("btnSyncDownload").addEventListener("click", async function() {
+  this.disabled = true;
+  this.textContent = "⏳ Mengambil dari Cloud...";
+  await syncFileOpnameFromCloud();
+  displaySaldoAwal();
+  displaySaldoAwalPs();
+  refreshHasilOpname();
+  refreshHasilOpnamePs();
+  this.disabled = false;
+  this.textContent = "⬇️ Ambil Dari Cloud";
+  alert("Data telah diambil dari cloud dan diperbarui.");
+});
 
+document.getElementById("btnSyncUpload").addEventListener("click", async function() {
+  this.disabled = true;
+  this.textContent = "⏳ Upload ke Cloud...";
+  await uploadFileOpnameToCloud();
+  this.disabled = false;
+  this.textContent = "⬆️ Upload ke Cloud";
+  alert("Data berhasil di-upload ke cloud.");
+});
 </script>
 </body>
 </html>
