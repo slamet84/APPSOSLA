@@ -62,6 +62,10 @@
 <script>
 let editIndex = -1;
 const fileName = decodeURIComponent(new URLSearchParams(window.location.search).get("file"));
+if (!fileName) {
+  alert("File opname belum dipilih! Silakan kembali ke menu utama.");
+  window.location.href = "input-opname.html";
+}  
 document.getElementById("fileNameDisplay").textContent = fileName;
 document.getElementById("backBtn").href += encodeURIComponent(fileName);
 
