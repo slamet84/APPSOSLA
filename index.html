@@ -3,139 +3,147 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>APPSOSLA</title>
+  <title>Input Opname</title>
   <link rel="stylesheet" href="style.css" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
   <style>
     body { background: #e6f7fa; }
     .container { max-width: 650px; margin: 40px auto; background: #fff; border-radius: 18px; box-shadow: 0 2px 12px #0001; padding: 2.5rem 2.5rem 2rem 2.5rem;}
     h1 { color: #00806a;}
-    .actions { text-align:center; margin:1.5rem 0;}
-    .btn { background: #00806a; color: #fff; border: none; border-radius: 8px; padding: 16px 28px; font-size: 1.2rem; margin: 0 10px; font-weight: bold; cursor:pointer; box-shadow: 0 2px 6px #0001; transition: background .2s;}
+    .btn { background: #00806a; color: #fff; border: none; border-radius: 8px; padding: 12px 18px; font-size: 1.1rem; margin: 0 10px; font-weight: bold; cursor:pointer; box-shadow: 0 2px 6px #0001; transition: background .2s;}
     .btn:hover { background: #00594c;}
-    .file-list { margin: .5rem 0 0 0; padding:0; list-style:none;}
-    .file-list li { margin: 0 0 1rem 0; padding: 12px 14px; background: #f2f9fa; border-radius: 7px; border-left: 5px solid #ffc107; font-size: 1rem;}
-    h2 { margin-top:2rem;color:#00806a; }
-    .logout-btn { background-color:red; color:white; border:none; padding:10px 20px; border-radius:6px; font-size:1rem;}
-    /* Tambahan untuk status sinkron */
-    #syncStatus { margin-left: 1rem; color:#00806a; font-weight:bold;}
+    #uploadSaldoStatus { margin-left: 1rem; color:#00806a; font-weight:bold;}
     @media (max-width:600px) { .container { padding:1rem;} .btn { padding: 12px 8px; margin: 5px 3px;}}
+    table { border-collapse: collapse; width:100%; margin-top:1.5rem;}
+    th, td { border:1px solid #ddd; padding: 8px;}
+    th { background: #e0f7f1;}
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>APPSOSLA</h1>
-    <div style="text-align: right;">
-      <button onclick="logout()" class="logout-btn">🔒 Logout</button>
+    <h1>Input Saldo Awal</h1>
+    <!-- Contoh: Pilih jenis -->
+    <div style="margin-bottom:1rem;">
+      <label><input type="radio" name="jenisSaldo" value="perlengkapan" checked /> Saldo Awal Perlengkapan</label>
+      <label><input type="radio" name="jenisSaldo" value="persediaan" style="margin-left:1rem;"/> Saldo Awal Persediaan</label>
     </div>
-    <div class="actions">
-      <a href="master-inventory.html" class="btn">📁 Master Inventory</a>
-      <a href="create-file.html" class="btn">➕ Buat File Baru</a>
-      <!-- Tombol Sinkronisasi -->
-      <button id="syncBtn" class="btn">🔄 Sinkron</button>
-      <span id="syncStatus"></span>
-    </div>
-    <!-- Daftar File Opname dari Cloud -->
-    <h2>📂 Daftar File Opname</h2>
-    <ul id="fileList" class="file-list"></ul>
-    <div id="fileError" style="color:red;"></div>
+    <!-- Form upload saldo awal (Excel, dst) -->
+    <input type="file" id="fileInput" accept=".json,.xls,.xlsx,.csv" class="btn"/>
+    <button id="saveSaldoBtn" class="btn">Simpan Saldo Awal</button>
+
+    <!-- Tombol upload saldo awal ke cloud -->
+    <button id="uploadSaldoAwalCloud" class="btn">Upload Saldo Awal ke Cloud</button>
+    <span id="uploadSaldoStatus"></span>
+
+    <!-- Tabel preview saldo awal -->
+    <table id="saldoAwalPreview" style="display:none">
+      <thead>
+        <tr><th>Kode</th><th>Nama</th><th>Jumlah</th></tr>
+      </thead>
+      <tbody id="saldoAwalTable"></tbody>
+    </table>
   </div>
-  <footer style="text-align:center; margin-top:2rem;">
-    <a href="privacy-policy.html">Privacy Policy</a>
-  </footer>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script>
-    // Supabase config (ganti jika perlu)
+    // Supabase config
     const SUPABASE_URL = 'https://yxwxqlufyzxroomjbuqh.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl4d3hxbHVmeXp4cm9vbWpidXFoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAwNDYxNDUsImV4cCI6MjA2NTYyMjE0NX0.wIlqtvkERpdHPaGyg8JufZL10M1noTi6hvTD6HPC36Q';
     const BUCKET_NAME = 'uploads';
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // Proteksi halaman: cek session Supabase
-    document.addEventListener('DOMContentLoaded', async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        window.location.href = "login.html";
+    let saldoAwalData = [];
+    let fileName = "";
+
+    // Pilih jenis saldo
+    function getJenisSaldo() {
+      return document.querySelector('input[name="jenisSaldo"]:checked').value;
+    }
+
+    // Baca file dan preview saldo awal
+    document.getElementById("fileInput").addEventListener("change", function(e){
+      const file = e.target.files[0];
+      if (!file) return;
+      fileName = file.name.replace(/\.[^/.]+$/, ""); // tanpa ekstensi
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        let data = [];
+        if (file.name.endsWith('.json')) {
+          data = JSON.parse(evt.target.result);
+        } else {
+          const workbook = XLSX.read(evt.target.result, {type: 'binary'});
+          const sheet = workbook.Sheets[workbook.SheetNames[0]];
+          data = XLSX.utils.sheet_to_json(sheet);
+        }
+        saldoAwalData = data;
+        displaySaldoAwal();
+      };
+      if (file.name.endsWith('.json')) {
+        reader.readAsText(file);
       } else {
-        loadCloudFiles();
+        reader.readAsBinaryString(file);
       }
     });
 
-    // Tampilkan daftar file opname dari Supabase Storage (cloud)
-    async function loadCloudFiles() {
-      const fileList = document.getElementById("fileList");
-      const fileError = document.getElementById("fileError");
-      fileError.textContent = "";
-      fileList.innerHTML = "<li>Mengambil data file dari cloud...</li>";
-
-      // Ambil daftar file dari folder opname-files di bucket
-      const { data, error } = await supabase
-        .storage
-        .from(BUCKET_NAME)
-        .list("opname-files", { limit: 100, offset: 0 });
-
-      fileList.innerHTML = "";
-
-      if (error) {
-        fileError.textContent = "Gagal mengambil daftar file cloud.";
+    // Tampilkan saldo awal yang sudah dibaca
+    function displaySaldoAwal() {
+      const tbody = document.getElementById("saldoAwalTable");
+      if (!saldoAwalData || saldoAwalData.length === 0) {
+        tbody.innerHTML = "<tr><td colspan='3'>Belum ada data</td></tr>";
+        document.getElementById("saldoAwalPreview").style.display = "none";
         return;
       }
-      if (!data || data.length === 0) {
-        fileList.innerHTML = "<p>Belum ada file opname di cloud.</p>";
+      tbody.innerHTML = saldoAwalData
+        .filter(item => item.kode && item.nama && item.jumlah)
+        .map(item =>
+          `<tr><td>${item.kode}</td><td>${item.nama}</td><td>${item.jumlah}</td></tr>`
+        ).join("");
+      document.getElementById("saldoAwalPreview").style.display = "";
+    }
+
+    // Simpan saldo ke localStorage
+    document.getElementById("saveSaldoBtn").addEventListener("click", function() {
+      if (!saldoAwalData || saldoAwalData.length === 0) {
+        alert("Belum ada data saldo awal yang diupload!");
         return;
       }
+      const jenis = getJenisSaldo();
+      const key = jenis === "perlengkapan"
+        ? `saldoAwal_perlengkapan_${fileName}`
+        : `saldoAwal_persediaan_${fileName}`;
+      localStorage.setItem(key, JSON.stringify(saldoAwalData));
+      alert("Saldo awal berhasil disimpan di localStorage.");
+    });
 
-      // Filter Hapus .emptyFolderPlaceholder
-      const filtered = data.filter(file => file.name !== '.emptyFolderPlaceholder');
-      if (filtered.length === 0) {
-        fileList.innerHTML = "<p>Belum ada file opname di cloud.</p>";
+    // Upload saldo awal ke Supabase Storage
+    async function uploadSaldoAwalKeCloud() {
+      const statusEl = document.getElementById("uploadSaldoStatus");
+      statusEl.textContent = "Uploading...";
+      const jenis = getJenisSaldo();
+      const key = jenis === "perlengkapan"
+        ? `saldoAwal_perlengkapan_${fileName}`
+        : `saldoAwal_persediaan_${fileName}`;
+      const folder = jenis === "perlengkapan"
+        ? "saldo-awal/perlengkapan"
+        : "saldo-awal/persediaan";
+      const data = localStorage.getItem(key);
+      if (!data) {
+        statusEl.textContent = "❌ Data saldo awal belum ada di localStorage!";
         return;
       }
-
-      // Urutkan file (terbaru di atas jika ada info tanggal)
-      filtered.sort((a,b) => b.created_at && a.created_at ? (new Date(b.created_at)-new Date(a.created_at)) : 0);
-
-      filtered.forEach(file => {
-        // Dapatkan public URL
-        const publicUrl = supabase.storage.from(BUCKET_NAME).getPublicUrl('opname-files/' + file.name).data.publicUrl;
-        const li = document.createElement("li");
-        li.innerHTML = `
-          <a href="input-opname.html?file=${encodeURIComponent(file.name)}" style="text-decoration:none; color:#00806a; font-weight:bold;">
-            ${file.name}
-          </a>
-          <br/>
-        `;
-        fileList.appendChild(li);
+      const filePath = `${folder}/saldo-awal-${fileName}-${Date.now()}.json`;
+      const { error } = await supabase.storage.from(BUCKET_NAME).upload(filePath, data, {
+        contentType: "application/json",
+        upsert: true
       });
+      if (error) {
+        statusEl.textContent = "❌ Upload gagal: " + error.message;
+      } else {
+        statusEl.textContent = "✔️ Berhasil upload saldo awal ke cloud";
+        setTimeout(() => statusEl.textContent = "", 2000);
+      }
     }
 
-      // Sinkronisasi data cloud ke localStorage (dummy, ganti dengan logika asli Anda)
-  async function syncCloudToLocal() {
-    // TODO: Implementasi sinkronisasi asli
-    // Simulasi delay 1,5 detik
-    return new Promise(resolve => setTimeout(resolve, 1500));
-  }
-
-  // Event handler untuk tombol Sinkron, dengan pengukur durasi
-  document.getElementById("syncBtn").addEventListener("click", async function() {
-    const status = document.getElementById("syncStatus");
-    status.textContent = "Sinkronisasi...";
-    const t0 = performance.now();
-    try {
-      await syncCloudToLocal();
-      const t1 = performance.now();
-      const duration = ((t1-t0)/1000).toFixed(2);
-      status.textContent = `✔️ Sinkronisasi selesai (${duration} detik)`;
-      setTimeout(() => status.textContent = "", 2000);
-    } catch (e) {
-      status.textContent = "❌ Gagal sinkronisasi";
-    }
-  });
-    
-    // Logout dengan Supabase Auth
-    async function logout() {
-      await supabase.auth.signOut();
-      window.location.href = "login.html";
-    }
+    document.getElementById("uploadSaldoAwalCloud").addEventListener("click", uploadSaldoAwalKeCloud);
   </script>
 </body>
 </html>
