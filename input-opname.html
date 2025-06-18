@@ -19,7 +19,7 @@
     th, td { border: 1px solid #ccc; padding: 8px; }
     a.info-link { color: #007bff; text-decoration: underline; cursor: pointer; }
     .cloud-upload-btn { background: #28a745; }
-    #saldoAwalCloudStatus, #saldoAwalPsCloudStatus {
+    #saldoAwalCloudStatus {
       margin-left: 1em; color: #28a745; font-weight: bold;
     }
   </style>
@@ -47,17 +47,17 @@
     <h2>📥 Saldo Awal Perlengkapan OS</h2>
     <input type="file" id="uploadSaldo" accept=".xlsx">
     <button onclick="clearSaldoAwal()">🗑️ Hapus Data</button>
-    <button class="btn cloud-upload-btn" id="uploadSaldoAwalCloudBtn">⬆️ Upload ke Cloud</button>
-    <span id="saldoAwalCloudStatus"></span>
     <table><thead><tr><th>Kode</th><th>Nama</th><th>Jumlah</th></tr></thead><tbody id="saldoAwalTable"></tbody></table>
   </div>
   <div id="saldoawalps" class="tab-content">
     <h2>📥 Saldo Awal Persediaan OS</h2>
     <input type="file" id="uploadSaldoPs" accept=".xlsx">
     <button onclick="clearSaldoAwalPs()">🗑️ Hapus Data</button>
-    <button class="btn cloud-upload-btn" id="uploadSaldoAwalPsCloudBtn">⬆️ Upload ke Cloud</button>
-    <span id="saldoAwalPsCloudStatus"></span>
     <table><thead><tr><th>Kode</th><th>Nama</th><th>Jumlah</th></tr></thead><tbody id="saldoAwalTablePs"></tbody></table>
+  </div>
+  <div style="margin: 1em 0;">
+    <button class="btn cloud-upload-btn" id="uploadSaldoAwalCloudBtn">⬆️ Upload Saldo Awal ke Cloud</button>
+    <span id="saldoAwalCloudStatus"></span>
   </div>
   <div id="hasilopname" class="tab-content">
     <h2>📊 Hasil Opname Perlengkapan</h2>
@@ -88,7 +88,7 @@ document.addEventListener("DOMContentLoaded", function() {
   const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   // === FILE HANDLING ===
-  const fileName = decodeURIComponent(new URLSearchParams(window.location.search).get("file") || "data");
+  const fileName = decodeURIComponent(new URLSearchParams(window.location.search).get("file") || "coba_1_2025-06-18");
   document.getElementById("fileNameDisplay").textContent = fileName;
   document.getElementById("btnPrl").href = `input-perlengkapan.html?file=${encodeURIComponent(fileName)}`;
   document.getElementById("btnPs").href = `input-persediaan.html?file=${encodeURIComponent(fileName)}`;
@@ -154,30 +154,6 @@ document.addEventListener("DOMContentLoaded", function() {
   });
   displaySaldoAwal();
 
-  // ==== UPLOAD SALDO AWAL PERLENGKAPAN KE CLOUD ====
-  document.getElementById("uploadSaldoAwalCloudBtn").addEventListener("click", async function() {
-    const statusEl = document.getElementById("saldoAwalCloudStatus");
-    statusEl.textContent = "Uploading...";
-    const key = `saldoAwal_perlengkapan_${fileName}`;
-    const folder = "saldo-awal/perlengkapan";
-    const data = localStorage.getItem(key);
-    if (!data) {
-      statusEl.textContent = "❌ Belum ada data saldo awal!";
-      return;
-    }
-    const filePath = `${folder}/saldo-awal-${fileName}-${Date.now()}.json`;
-    const { error } = await supabase.storage.from(BUCKET_NAME).upload(filePath, data, {
-      contentType: "application/json",
-      upsert: true
-    });
-    if (error) {
-      statusEl.textContent = "❌ Upload gagal: " + error.message;
-    } else {
-      statusEl.textContent = "✔️ Berhasil upload saldo awal ke cloud";
-      setTimeout(() => statusEl.textContent = "", 2500);
-    }
-  });
-
   // ==== SALDO AWAL PERSEDIAAN ====
   function displaySaldoAwalPs() {
     const data = JSON.parse(localStorage.getItem(`saldoAwal_persediaan_${fileName}`)) || [];
@@ -207,26 +183,41 @@ document.addEventListener("DOMContentLoaded", function() {
   });
   displaySaldoAwalPs();
 
-  // ==== UPLOAD SALDO AWAL PERSEDIAAN KE CLOUD ====
-  document.getElementById("uploadSaldoAwalPsCloudBtn").addEventListener("click", async function() {
-    const statusEl = document.getElementById("saldoAwalPsCloudStatus");
+  // ==== UPLOAD SALDO AWAL GABUNG KE FILE UTAMA JSON ====
+  document.getElementById("uploadSaldoAwalCloudBtn").addEventListener("click", async function() {
+    const statusEl = document.getElementById("saldoAwalCloudStatus");
     statusEl.textContent = "Uploading...";
-    const key = `saldoAwal_persediaan_${fileName}`;
-    const folder = "saldo-awal/persediaan";
-    const data = localStorage.getItem(key);
-    if (!data) {
-      statusEl.textContent = "❌ Belum ada data saldo awal!";
-      return;
-    }
-    const filePath = `${folder}/saldo-awal-${fileName}-${Date.now()}.json`;
-    const { error } = await supabase.storage.from(BUCKET_NAME).upload(filePath, data, {
-      contentType: "application/json",
-      upsert: true
-    });
-    if (error) {
-      statusEl.textContent = "❌ Upload gagal: " + error.message;
+    const saldoAwal_perlengkapan = JSON.parse(localStorage.getItem(`saldoAwal_perlengkapan_${fileName}`) || "[]");
+    const saldoAwal_persediaan = JSON.parse(localStorage.getItem(`saldoAwal_persediaan_${fileName}`) || "[]");
+
+    // Coba ambil file utama dari cloud
+    let mainJson = {};
+    try {
+      const { data, error } = await supabase
+        .storage
+        .from(BUCKET_NAME)
+        .download(`opname-files/${fileName}.json`);
+      if (!error && data) {
+        const text = await data.text();
+        mainJson = JSON.parse(text);
+      }
+    } catch (e) {/* abaikan jika file belum ada */}
+    // Update saldo awal di dalam file utama
+    mainJson.saldoAwal_perlengkapan = saldoAwal_perlengkapan;
+    mainJson.saldoAwal_persediaan = saldoAwal_persediaan;
+    mainJson.lastUpdate = Date.now();
+
+    // Upload (upsert) file utama
+    const { error: upErr } = await supabase.storage.from(BUCKET_NAME)
+      .upload(`opname-files/${fileName}.json`, JSON.stringify(mainJson), {
+        contentType: "application/json",
+        upsert: true
+      });
+
+    if (upErr) {
+      statusEl.textContent = "❌ Upload gagal: " + upErr.message;
     } else {
-      statusEl.textContent = "✔️ Berhasil upload saldo awal ke cloud";
+      statusEl.textContent = "✔️ Saldo awal berhasil digabung & upload";
       setTimeout(() => statusEl.textContent = "", 2500);
     }
   });
@@ -348,7 +339,7 @@ document.addEventListener("DOMContentLoaded", function() {
     document.getElementById("modalLokasi").style.display = "none";
   }
 
-  // === SINKRONISASI CLOUD AMAN MULTI USER + PATCH INCOGNITO ===
+  // === SINKRONISASI CLOUD, PATCH DLL (TIDAK DIUBAH DARI KODE ANDA) ===
   function getAllOpnameDataWithTimestamp() {
     return {
       lastUpdate: getLastUpdateLocal(),
@@ -393,12 +384,10 @@ document.addEventListener("DOMContentLoaded", function() {
     btn.disabled = true;
     btn.textContent = "⏳ Sinkronisasi...";
 
-    // 1. Ambil data cloud
     const cloudData = await downloadFileOpnameFromCloudWithTimestamp();
     const localTs = getLastUpdateLocal();
     const cloudTs = cloudData && cloudData.lastUpdate ? parseInt(cloudData.lastUpdate) : 0;
 
-    // Tambahan: Deteksi jika data lokal benar-benar kosong (bukan hanya timestamp)
     const localDataIsEmpty =
       (!localStorage.getItem(`opnameData_${fileName}`) ||
         localStorage.getItem(`opnameData_${fileName}`) === "[]") &&
@@ -408,10 +397,8 @@ document.addEventListener("DOMContentLoaded", function() {
         localStorage.getItem(`saldoAwal_persediaan_${fileName}`) === "[]");
 
     if (localDataIsEmpty && cloudTs > 0) {
-      // Local benar-benar kosong, langsung pakai data cloud
       if (cloudData.saldoAwal_perlengkapan) localStorage.setItem(`saldoAwal_perlengkapan_${fileName}`, JSON.stringify(cloudData.saldoAwal_perlengkapan));
       if (cloudData.saldoAwal_persediaan) localStorage.setItem(`saldoAwal_persediaan_${fileName}`, JSON.stringify(cloudData.saldoAwal_persediaan));
-      // PATCH: merge opnameData cloud ke opnameData_${fileName}
       let merged = [];
       if (cloudData.opnameData_perlengkapan) merged = merged.concat(cloudData.opnameData_perlengkapan.map(x => ({...x, kategori: "Perlengkapan"})));
       if (cloudData.opnameData_room) merged = merged.concat(cloudData.opnameData_room.map(x => ({...x, kategori: "Room"})));
@@ -420,10 +407,8 @@ document.addEventListener("DOMContentLoaded", function() {
       setLastUpdateLocal(cloudTs);
       alert("Local kosong. Data cloud diimpor ke local.");
     } else if (cloudTs > localTs) {
-      // Cloud lebih baru, timpa lokal
       if (cloudData.saldoAwal_perlengkapan) localStorage.setItem(`saldoAwal_perlengkapan_${fileName}`, JSON.stringify(cloudData.saldoAwal_perlengkapan));
       if (cloudData.saldoAwal_persediaan) localStorage.setItem(`saldoAwal_persediaan_${fileName}`, JSON.stringify(cloudData.saldoAwal_persediaan));
-      // PATCH: merge opnameData cloud ke opnameData_${fileName}
       let merged = [];
       if (cloudData.opnameData_perlengkapan) merged = merged.concat(cloudData.opnameData_perlengkapan.map(x => ({...x, kategori: "Perlengkapan"})));
       if (cloudData.opnameData_room) merged = merged.concat(cloudData.opnameData_room.map(x => ({...x, kategori: "Room"})));
@@ -445,25 +430,20 @@ document.addEventListener("DOMContentLoaded", function() {
     btn.disabled = false;
     btn.textContent = "🔄 Sinkron Cloud";
 
-    // PATCH: Trigger reload di halaman input lain/tab lain
     localStorage.setItem('forceReload', Date.now().toString());
   }
 
   document.getElementById("btnSyncCloud").addEventListener("click", syncCloud);
 
-  // ==== Dummy Export (Supaya tombol tidak error) ====
   window.exportHasilOpname = function() { alert("Export belum diimplementasikan."); }
   window.exportHasilOpnamePs = function() { alert("Export belum diimplementasikan."); }
 
-  // ==== Sinkronisasi awal saat halaman dibuka ====
   downloadFileOpnameFromCloudWithTimestamp().then(cloudData => {
     const localTs = getLastUpdateLocal();
     const cloudTs = cloudData && cloudData.lastUpdate ? parseInt(cloudData.lastUpdate) : 0;
     if (cloudTs > localTs) {
-      // update lokal dari cloud
       if (cloudData.saldoAwal_perlengkapan) localStorage.setItem(`saldoAwal_perlengkapan_${fileName}`, JSON.stringify(cloudData.saldoAwal_perlengkapan));
       if (cloudData.saldoAwal_persediaan) localStorage.setItem(`saldoAwal_persediaan_${fileName}`, JSON.stringify(cloudData.saldoAwal_persediaan));
-      // PATCH: merge opnameData cloud ke opnameData_${fileName}
       let merged = [];
       if (cloudData.opnameData_perlengkapan) merged = merged.concat(cloudData.opnameData_perlengkapan.map(x => ({...x, kategori: "Perlengkapan"})));
       if (cloudData.opnameData_room) merged = merged.concat(cloudData.opnameData_room.map(x => ({...x, kategori: "Room"})));
@@ -477,7 +457,6 @@ document.addEventListener("DOMContentLoaded", function() {
     refreshHasilOpnamePs();
   });
 
-  // PATCH: Reload halaman input lain/tab lain jika forceReload berubah (sinkronisasi cloud)
   window.addEventListener('storage', function(e) {
     if (e.key === 'forceReload') {
       window.location.reload();
