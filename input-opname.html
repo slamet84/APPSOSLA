@@ -17,6 +17,7 @@
     .tab-content.active { display: block; }
     table { width: 100%; border-collapse: collapse; margin-top: 10px; }
     th, td { border: 1px solid #ccc; padding: 8px; }
+    a.info-link { color: #007bff; text-decoration: underline; cursor: pointer; }
   </style>
 </head>
 <body>
@@ -28,11 +29,11 @@
   <a href="index.html" class="btn">← Kembali ke Dashboard</a>
 
   <div class="tab-nav">
-    <button onclick="showTab('menu')" class="active">📂 Menu</button>
-    <button onclick="showTab('saldoawal')">📥 Saldo Awal Perlengkapan OS</button>
-    <button onclick="showTab('saldoawalps')">📥 Saldo Awal Persediaan OS</button>
-    <button onclick="showTab('hasilopname')">📊 Hasil Opname Perlengkapan</button>
-    <button onclick="showTab('hasilopnameps')">📊 Hasil Opname Persediaan</button>
+    <button onclick="showTab('menu', event)" class="active">📂 Menu</button>
+    <button onclick="showTab('saldoawal', event)">📥 Saldo Awal Perlengkapan OS</button>
+    <button onclick="showTab('saldoawalps', event)">📥 Saldo Awal Persediaan OS</button>
+    <button onclick="showTab('hasilopname', event)">📊 Hasil Opname Perlengkapan</button>
+    <button onclick="showTab('hasilopnameps', event)">📊 Hasil Opname Persediaan</button>
   </div>
   <div id="menu" class="tab-content active">
     <a class="btn" id="btnPrl">🧾 Input Perlengkapan</a>
@@ -62,6 +63,15 @@
     <table><thead><tr><th>Kode</th><th>Nama</th><th>Saldo</th><th>Input</th><th>Selisih</th></tr></thead><tbody id="hasilOpnameTablePs"></tbody></table>
   </div>
 </div>
+
+<!-- Modal lokasi -->
+<div id="modalLokasi" style="display:none; position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:999;background:rgba(0,0,0,0.4)">
+  <div style="background:white;max-width:400px;margin:100px auto;padding:20px;border-radius:10px;position:relative">
+    <button style="position:absolute;top:10px;right:10px" onclick="closeModalLokasi()">✖</button>
+    <div id="modalLokasiContent"></div>
+  </div>
+</div>
+
 <script>
 document.addEventListener("DOMContentLoaded", function() {
   // === SUPABASE SETUP ===
@@ -77,11 +87,11 @@ document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("btnPs").href = `input-persediaan.html?file=${fileName}`;
   document.getElementById("btnRoom").href = `input-room.html?file=${fileName}`;
 
-  window.showTab = function(id) {
+  window.showTab = function(id, evt) {
     document.querySelectorAll(".tab-content").forEach(el => el.classList.remove("active"));
     document.querySelectorAll(".tab-nav button").forEach(btn => btn.classList.remove("active"));
     document.getElementById(id).classList.add("active");
-    event.target.classList.add("active");
+    if (evt) evt.target.classList.add("active");
     if (id === "hasilopname") refreshHasilOpname();
     if (id === "hasilopnameps") refreshHasilOpnamePs();
   };
@@ -95,6 +105,7 @@ document.addEventListener("DOMContentLoaded", function() {
       if (norm.includes('nama')) out.nama = obj[key];
       if (norm.includes('jumlah')) out.jumlah = parseInt(obj[key]) || 0;
       if (norm.includes('stokfisik') || norm.includes('stok_fisik')) out.stokFisik = parseInt(obj[key]) || 0;
+      if (norm.includes('lokasi') || norm.includes('room')) out.lokasi = obj[key] || obj['room'] || '';
     }
     return out;
   }
@@ -196,7 +207,7 @@ document.addEventListener("DOMContentLoaded", function() {
       .map(r => `
         <tr>
           <td>${r.kode}</td>
-          <td>${r.nama}</td>
+          <td><a href="#" class="info-link" onclick="showLokasi('${r.kode}','${r.nama}');return false;">${r.nama}</a></td>
           <td>${r.saldoAwal}</td>
           <td>${r.totalInput}</td>
           <td>${r.selisih}</td>
@@ -243,12 +254,33 @@ document.addEventListener("DOMContentLoaded", function() {
       .map(r => `
         <tr>
           <td>${r.kode}</td>
-          <td>${r.nama}</td>
+          <td><a href="#" class="info-link" onclick="showLokasi('${r.kode}','${r.nama}');return false;">${r.nama}</a></td>
           <td>${r.saldoAwal}</td>
           <td>${r.totalInput}</td>
           <td>${r.selisih}</td>
         </tr>
       `).join("");
+  }
+
+  // ==== MODAL LOKASI ====
+  window.showLokasi = function(kode, nama) {
+    const allData = JSON.parse(localStorage.getItem(`opnameData_${fileName}`)) || [];
+    // Ambil semua lokasi unik dari data opname
+    const lokasiArr = allData.filter(x => x.kode === kode && (x.lokasi || x.room))
+      .map(x => x.lokasi || x.room)
+      .filter((v, i, arr) => v && arr.indexOf(v) === i);
+
+    let html = `<b>${nama} (${kode})</b><br>`;
+    if (lokasiArr.length) {
+      html += 'Lokasi:<ul>' + lokasiArr.map(l => `<li>${l}</li>`).join('') + '</ul>';
+    } else {
+      html += '<i>Lokasi tidak ditemukan</i>';
+    }
+    document.getElementById("modalLokasiContent").innerHTML = html;
+    document.getElementById("modalLokasi").style.display = "block";
+  }
+  window.closeModalLokasi = function() {
+    document.getElementById("modalLokasi").style.display = "none";
   }
 
   // === SINKRONISASI CLOUD ===
