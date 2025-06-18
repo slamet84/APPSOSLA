@@ -117,12 +117,14 @@ document.addEventListener("DOMContentLoaded", function() {
 
   // ==== SALDO AWAL PERLENGKAPAN ====
   function displaySaldoAwal() {
-    const data = JSON.parse(localStorage.getItem(`saldoAwal_perlengkapan_${fileName}`)) || [];
-    const tbody = document.getElementById("saldoAwalTable");
-    tbody.innerHTML = data.map(d => {
-      const item = normalizeKey(d);
-      return `<tr><td>${item.kode || ""}</td><td>${item.nama || ""}</td><td>${item.jumlah || 0}</td></tr>`;
-    }).join("");
+  const data = JSON.parse(localStorage.getItem(`saldoAwal_perlengkapan_${fileName}`)) || [];
+  const tbody = document.getElementById("saldoAwalTable");
+  tbody.innerHTML = data
+    .map(normalizeKey)
+    .filter(item => item.kode && item.nama && item.jumlah) // hanya tampilkan yang valid
+    .map(item =>
+      `<tr><td>${item.kode}</td><td>${item.nama}</td><td>${item.jumlah}</td></tr>`
+    ).join("");
   }
   window.clearSaldoAwal = function() {
     localStorage.removeItem(`saldoAwal_perlengkapan_${fileName}`);
