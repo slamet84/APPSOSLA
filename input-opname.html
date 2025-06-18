@@ -265,14 +265,13 @@ document.addEventListener("DOMContentLoaded", function() {
   // ==== MODAL LOKASI ====
   window.showLokasi = function(kode, nama) {
     const allData = JSON.parse(localStorage.getItem(`opnameData_${fileName}`)) || [];
-    // Ambil semua lokasi unik dari data opname
-    const lokasiArr = allData.filter(x => x.kode === kode && (x.lokasi || x.room))
-      .map(x => x.lokasi || x.room)
-      .filter((v, i, arr) => v && arr.indexOf(v) === i);
-
+    // Filter data opname dengan kode yang sama
+    const dataLokasi = allData.filter(x => x.kode === kode);
     let html = `<b>${nama} (${kode})</b><br>`;
-    if (lokasiArr.length) {
-      html += 'Lokasi:<ul>' + lokasiArr.map(l => `<li>${l}</li>`).join('') + '</ul>';
+    if (dataLokasi.length) {
+      html += '<table border="1" style="width:100%;margin-top:10px;"><thead><tr><th>Lokasi</th><th>Jumlah</th></tr></thead><tbody>';
+      html += dataLokasi.map(x => `<tr><td>${x.lokasi || x.room || '-'}</td><td>${x.stokFisik || 0}</td></tr>`).join('');
+      html += '</tbody></table>';
     } else {
       html += '<i>Lokasi tidak ditemukan</i>';
     }
