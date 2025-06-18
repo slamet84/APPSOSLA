@@ -340,8 +340,17 @@ document.addEventListener("DOMContentLoaded", function() {
     const localTs = getLastUpdateLocal();
     const cloudTs = cloudData && cloudData.lastUpdate ? parseInt(cloudData.lastUpdate) : 0;
 
-    // PATCH: Jika local kosong (0) dan cloud ada, langsung pakai data cloud, JANGAN upload local kosong ke cloud!
-    if ((!localTs || localTs === 0) && cloudTs > 0) {
+    // Tambahan: Deteksi jika data lokal benar-benar kosong (bukan hanya timestamp)
+    const localDataIsEmpty =
+      (!localStorage.getItem(`opnameData_${fileName}`) ||
+        localStorage.getItem(`opnameData_${fileName}`) === "[]") &&
+      (!localStorage.getItem(`saldoAwal_perlengkapan_${fileName}`) ||
+        localStorage.getItem(`saldoAwal_perlengkapan_${fileName}`) === "[]") &&
+      (!localStorage.getItem(`saldoAwal_persediaan_${fileName}`) ||
+        localStorage.getItem(`saldoAwal_persediaan_${fileName}`) === "[]");
+
+    if (localDataIsEmpty && cloudTs > 0) {
+      // Local benar-benar kosong, langsung pakai data cloud
       if (cloudData.saldoAwal_perlengkapan) localStorage.setItem(`saldoAwal_perlengkapan_${fileName}`, JSON.stringify(cloudData.saldoAwal_perlengkapan));
       if (cloudData.saldoAwal_persediaan) localStorage.setItem(`saldoAwal_persediaan_${fileName}`, JSON.stringify(cloudData.saldoAwal_persediaan));
       if (cloudData.opnameData_perlengkapan) localStorage.setItem(`opnameData_perlengkapan_${fileName}`, JSON.stringify(cloudData.opnameData_perlengkapan));
@@ -423,6 +432,6 @@ document.addEventListener("DOMContentLoaded", function() {
   });
 
 });
- </script>
+</script>
 </body>
 </html>
