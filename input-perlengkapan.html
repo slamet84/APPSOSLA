@@ -214,10 +214,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
   refreshTable();
 
-  // PATCH: Auto-refresh tabel jika localStorage berubah (misal setelah sinkron cloud)
+  // PATCH: Auto-refresh tabel jika localStorage berubah (misal setelah sinkron cloud/tab lain)
   window.addEventListener('storage', function(e) {
     if (e.key === `opnameData_${fileName}`) {
       refreshTable();
+    }
+    // PATCH: Auto-reload halaman jika forceReload berubah (sinkron cloud dari menu utama)
+    if (e.key === 'forceReload') {
+      window.location.reload();
     }
   });
 });
