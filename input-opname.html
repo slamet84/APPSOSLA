@@ -84,7 +84,11 @@ document.addEventListener("DOMContentLoaded", function() {
   const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   // === FILE HANDLING ===
-  const fileName = decodeURIComponent(new URLSearchParams(window.location.search).get("file") || "data");
+  // Fix: remove .json extension if user supplies it in file param
+  let fileName = decodeURIComponent(new URLSearchParams(window.location.search).get("file") || "data");
+  if (fileName.toLowerCase().endsWith('.json')) {
+    fileName = fileName.slice(0, -5);
+  }
   document.getElementById("fileNameDisplay").textContent = fileName;
   document.getElementById("btnPrl").href = `input-perlengkapan.html?file=${encodeURIComponent(fileName)}`;
   document.getElementById("btnPs").href = `input-persediaan.html?file=${encodeURIComponent(fileName)}`;
