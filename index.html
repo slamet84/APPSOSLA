@@ -17,6 +17,8 @@
     .file-list li { margin: 0 0 1rem 0; padding: 12px 14px; background: #f2f9fa; border-radius: 7px; border-left: 5px solid #ffc107; font-size: 1rem;}
     h2 { margin-top:2rem;color:#00806a; }
     .logout-btn { background-color:red; color:white; border:none; padding:10px 20px; border-radius:6px; font-size:1rem;}
+    /* Tambahan untuk status sinkron */
+    #syncStatus { margin-left: 1rem; color:#00806a; font-weight:bold;}
     @media (max-width:600px) { .container { padding:1rem;} .btn { padding: 12px 8px; margin: 5px 3px;}}
   </style>
 </head>
@@ -29,6 +31,9 @@
     <div class="actions">
       <a href="master-inventory.html" class="btn">📁 Master Inventory</a>
       <a href="create-file.html" class="btn">➕ Buat File Baru</a>
+      <!-- Tombol Sinkronisasi -->
+      <button id="syncBtn" class="btn">🔄 Sinkron</button>
+      <span id="syncStatus"></span>
     </div>
     <!-- Daftar File Opname dari Cloud -->
     <h2>📂 Daftar File Opname</h2>
@@ -102,6 +107,26 @@
         fileList.appendChild(li);
       });
     }
+
+    // Sinkronisasi data cloud ke localStorage (dummy, ganti sesuai logika Anda)
+    async function syncCloudToLocal() {
+      // TODO: Implementasi asli sinkronisasi di sini
+      // Contoh: Simulasi delay 1,5 detik
+      return new Promise(resolve => setTimeout(resolve, 1500));
+    }
+
+    // Event handler untuk tombol Sinkron
+    document.getElementById("syncBtn").addEventListener("click", async function() {
+      const status = document.getElementById("syncStatus");
+      status.textContent = "Sinkronisasi...";
+      try {
+        await syncCloudToLocal();
+        status.textContent = "✔️ Sinkronisasi selesai";
+        setTimeout(() => status.textContent = "", 2000);
+      } catch (e) {
+        status.textContent = "❌ Gagal sinkronisasi";
+      }
+    });
 
     // Logout dengan Supabase Auth
     async function logout() {
