@@ -108,26 +108,29 @@
       });
     }
 
-    // Sinkronisasi data cloud ke localStorage (dummy, ganti sesuai logika Anda)
-    async function syncCloudToLocal() {
-      // TODO: Implementasi asli sinkronisasi di sini
-      // Contoh: Simulasi delay 1,5 detik
-      return new Promise(resolve => setTimeout(resolve, 1500));
+      // Sinkronisasi data cloud ke localStorage (dummy, ganti dengan logika asli Anda)
+  async function syncCloudToLocal() {
+    // TODO: Implementasi sinkronisasi asli
+    // Simulasi delay 1,5 detik
+    return new Promise(resolve => setTimeout(resolve, 1500));
+  }
+
+  // Event handler untuk tombol Sinkron, dengan pengukur durasi
+  document.getElementById("syncBtn").addEventListener("click", async function() {
+    const status = document.getElementById("syncStatus");
+    status.textContent = "Sinkronisasi...";
+    const t0 = performance.now();
+    try {
+      await syncCloudToLocal();
+      const t1 = performance.now();
+      const duration = ((t1-t0)/1000).toFixed(2);
+      status.textContent = `✔️ Sinkronisasi selesai (${duration} detik)`;
+      setTimeout(() => status.textContent = "", 2000);
+    } catch (e) {
+      status.textContent = "❌ Gagal sinkronisasi";
     }
-
-    // Event handler untuk tombol Sinkron
-    document.getElementById("syncBtn").addEventListener("click", async function() {
-      const status = document.getElementById("syncStatus");
-      status.textContent = "Sinkronisasi...";
-      try {
-        await syncCloudToLocal();
-        status.textContent = "✔️ Sinkronisasi selesai";
-        setTimeout(() => status.textContent = "", 2000);
-      } catch (e) {
-        status.textContent = "❌ Gagal sinkronisasi";
-      }
-    });
-
+  });
+    
     // Logout dengan Supabase Auth
     async function logout() {
       await supabase.auth.signOut();
