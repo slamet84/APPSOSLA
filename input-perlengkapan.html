@@ -213,6 +213,13 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   refreshTable();
+
+  // PATCH: Auto-refresh tabel jika localStorage berubah (misal setelah sinkron cloud)
+  window.addEventListener('storage', function(e) {
+    if (e.key === `opnameData_${fileName}`) {
+      refreshTable();
+    }
+  });
 });
 </script>
 </body>
