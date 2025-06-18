@@ -109,6 +109,11 @@ function showFilteredItems(inputElement, listElement) {
   });
 }
 
+// === Tambahkan fungsi updateLastUpdate ===
+function updateLastUpdate() {
+  localStorage.setItem(`lastUpdate_${fileName}`, Date.now().toString());
+}
+
 // === MODIFIKASI: simpan ke key umum opnameData_${fileName}, tambah kategori ===
 function loadData() {
   const allData = JSON.parse(localStorage.getItem(`opnameData_${fileName}`)) || [];
@@ -130,6 +135,7 @@ function saveData(entry) {
     allData.push(entry);
   }
   localStorage.setItem(`opnameData_${fileName}`, JSON.stringify(allData));
+  updateLastUpdate(); // <--- PATCH: Setiap simpan/update data, update timestamp!
 }
 
 function refreshTable() {
@@ -154,6 +160,7 @@ function hapusBaris(index) {
   if (filteredIndexes[index] !== undefined) {
     allData.splice(filteredIndexes[index], 1);
     localStorage.setItem(`opnameData_${fileName}`, JSON.stringify(allData));
+    updateLastUpdate(); // <--- PATCH: Hapus data juga update timestamp!
     refreshTable();
   }
 }
