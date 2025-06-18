@@ -27,7 +27,7 @@
 <body>
 <div class="container">
   <h1>📋 Menu Input Opname</h1>
-  <button class="btn" id="btnSyncCloud">🔄 Sinkron Cloud</button>
+  <button class="btn" id="btnSyncCloud">🔄 Sinkronisasi Cloud (Upload & Download)</button>
   <p><strong>Nama File:</strong> <span id="fileNameDisplay"></span></p>
   <a href="index.html" class="btn">← Kembali ke Dashboard</a>
 
@@ -54,10 +54,6 @@
     <input type="file" id="uploadSaldoPs" accept=".xlsx">
     <button onclick="clearSaldoAwalPs()">🗑️ Hapus Data</button>
     <table><thead><tr><th>Kode</th><th>Nama</th><th>Jumlah</th></tr></thead><tbody id="saldoAwalTablePs"></tbody></table>
-  </div>
-  <div style="margin: 1em 0;">
-    <button class="btn cloud-upload-btn" id="uploadSaldoAwalCloudBtn">⬆️ Upload Saldo Awal ke Cloud</button>
-    <span id="saldoAwalCloudStatus"></span>
   </div>
   <div id="hasilopname" class="tab-content">
     <h2>📊 Hasil Opname Perlengkapan</h2>
@@ -88,7 +84,7 @@ document.addEventListener("DOMContentLoaded", function() {
   const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   // === FILE HANDLING ===
-  const fileName = decodeURIComponent(new URLSearchParams(window.location.search).get("file") || "coba_1_2025-06-18");
+  const fileName = decodeURIComponent(new URLSearchParams(window.location.search).get("file") || "data");
   document.getElementById("fileNameDisplay").textContent = fileName;
   document.getElementById("btnPrl").href = `input-perlengkapan.html?file=${encodeURIComponent(fileName)}`;
   document.getElementById("btnPs").href = `input-persediaan.html?file=${encodeURIComponent(fileName)}`;
@@ -182,45 +178,6 @@ document.addEventListener("DOMContentLoaded", function() {
     reader.readAsArrayBuffer(e.target.files[0]);
   });
   displaySaldoAwalPs();
-
-  // ==== UPLOAD SALDO AWAL GABUNG KE FILE UTAMA JSON ====
-  document.getElementById("uploadSaldoAwalCloudBtn").addEventListener("click", async function() {
-    const statusEl = document.getElementById("saldoAwalCloudStatus");
-    statusEl.textContent = "Uploading...";
-    const saldoAwal_perlengkapan = JSON.parse(localStorage.getItem(`saldoAwal_perlengkapan_${fileName}`) || "[]");
-    const saldoAwal_persediaan = JSON.parse(localStorage.getItem(`saldoAwal_persediaan_${fileName}`) || "[]");
-
-    // Coba ambil file utama dari cloud
-    let mainJson = {};
-    try {
-      const { data, error } = await supabase
-        .storage
-        .from(BUCKET_NAME)
-        .download(`opname-files/${fileName}.json`);
-      if (!error && data) {
-        const text = await data.text();
-        mainJson = JSON.parse(text);
-      }
-    } catch (e) {/* abaikan jika file belum ada */}
-    // Update saldo awal di dalam file utama
-    mainJson.saldoAwal_perlengkapan = saldoAwal_perlengkapan;
-    mainJson.saldoAwal_persediaan = saldoAwal_persediaan;
-    mainJson.lastUpdate = Date.now();
-
-    // Upload (upsert) file utama
-    const { error: upErr } = await supabase.storage.from(BUCKET_NAME)
-      .upload(`opname-files/${fileName}.json`, JSON.stringify(mainJson), {
-        contentType: "application/json",
-        upsert: true
-      });
-
-    if (upErr) {
-      statusEl.textContent = "❌ Upload gagal: " + upErr.message;
-    } else {
-      statusEl.textContent = "✔️ Saldo awal berhasil digabung & upload";
-      setTimeout(() => statusEl.textContent = "", 2500);
-    }
-  });
 
   function updateLastUpdate() {
     setLastUpdateLocal(Date.now());
@@ -320,6 +277,83 @@ document.addEventListener("DOMContentLoaded", function() {
       `).join("");
   }
 
+  // ==== EXPORT EXCEL ====
+  window.exportHasilOpname = function() {
+    const saldo = (JSON.parse(localStorage.getItem(`saldoAwal_perlengkapan_${fileName}`)) || []).map(normalizeKey);
+    const allData = JSON.parse(localStorage.getItem(`opnameData_${fileName}`)) || [];
+    const inputData = allData.filter(e => e.kategori === "Perlengkapan" || e.kategori === "Room");
+    const total = {};
+    inputData.forEach(item => {
+      if (!total[item.kode]) total[item.kode] = { jumlah: 0, nama: item.nama };
+      total[item.kode].jumlah += parseInt(item.stokFisik || 0);
+    });
+    const hasil = {};
+    saldo.forEach(item => {
+      hasil[item.kode] = {
+        kode: item.kode,
+        nama: item.nama,
+        saldo_awal: item.jumlah,
+        input: total[item.kode]?.jumlah || 0,
+        selisih: item.jumlah - (total[item.kode]?.jumlah || 0)
+      };
+    });
+    Object.keys(total).forEach(kode => {
+      if (!hasil[kode]) {
+        hasil[kode] = {
+          kode,
+          nama: total[kode].nama,
+          saldo_awal: 0,
+          input: total[kode].jumlah,
+          selisih: -total[kode].jumlah
+        };
+      }
+    });
+    const out = Object.values(hasil).filter(r => r.saldo_awal !== 0 || r.input !== 0);
+    if (out.length === 0) return alert("Tidak ada data untuk diexport");
+    const ws = XLSX.utils.json_to_sheet(out);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Hasil Opname Perlengkapan");
+    XLSX.writeFile(wb, `Hasil_Opname_Perlengkapan_${fileName}.xlsx`);
+  };
+
+  window.exportHasilOpnamePs = function() {
+    const saldo = (JSON.parse(localStorage.getItem(`saldoAwal_persediaan_${fileName}`)) || []).map(normalizeKey);
+    const allData = JSON.parse(localStorage.getItem(`opnameData_${fileName}`)) || [];
+    const inputData = allData.filter(e => e.kategori === "Persediaan");
+    const total = {};
+    inputData.forEach(item => {
+      if (!total[item.kode]) total[item.kode] = { jumlah: 0, nama: item.nama };
+      total[item.kode].jumlah += parseInt(item.stokFisik || 0);
+    });
+    const hasil = {};
+    saldo.forEach(item => {
+      hasil[item.kode] = {
+        kode: item.kode,
+        nama: item.nama,
+        saldo_awal: item.jumlah,
+        input: total[item.kode]?.jumlah || 0,
+        selisih: item.jumlah - (total[item.kode]?.jumlah || 0)
+      };
+    });
+    Object.keys(total).forEach(kode => {
+      if (!hasil[kode]) {
+        hasil[kode] = {
+          kode,
+          nama: total[kode].nama,
+          saldo_awal: 0,
+          input: total[kode].jumlah,
+          selisih: -total[kode].jumlah
+        };
+      }
+    });
+    const out = Object.values(hasil).filter(r => r.saldo_awal !== 0 || r.input !== 0);
+    if (out.length === 0) return alert("Tidak ada data untuk diexport");
+    const ws = XLSX.utils.json_to_sheet(out);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Hasil Opname Persediaan");
+    XLSX.writeFile(wb, `Hasil_Opname_Persediaan_${fileName}.xlsx`);
+  };
+
   // ==== MODAL LOKASI ====
   window.showLokasi = function(kode, nama) {
     const allData = JSON.parse(localStorage.getItem(`opnameData_${fileName}`)) || [];
@@ -339,123 +373,71 @@ document.addEventListener("DOMContentLoaded", function() {
     document.getElementById("modalLokasi").style.display = "none";
   }
 
-  // === SINKRONISASI CLOUD, PATCH DLL (TIDAK DIUBAH DARI KODE ANDA) ===
-  function getAllOpnameDataWithTimestamp() {
+  // ==== SINKRONISASI (UPLOAD & DOWNLOAD) GABUNG ====
+  function getAllDataWithTimestamp() {
     return {
       lastUpdate: getLastUpdateLocal(),
       saldoAwal_perlengkapan: JSON.parse(localStorage.getItem(`saldoAwal_perlengkapan_${fileName}`) || "[]"),
       saldoAwal_persediaan: JSON.parse(localStorage.getItem(`saldoAwal_persediaan_${fileName}`) || "[]"),
-      opnameData_perlengkapan: JSON.parse(localStorage.getItem(`opnameData_${fileName}`) || "[]").filter(e => e.kategori === "Perlengkapan"),
-      opnameData_persediaan: JSON.parse(localStorage.getItem(`opnameData_${fileName}`) || "[]").filter(e => e.kategori === "Persediaan"),
-      opnameData_room: JSON.parse(localStorage.getItem(`opnameData_${fileName}`) || "[]").filter(e => e.kategori === "Room")
+      opnameData: JSON.parse(localStorage.getItem(`opnameData_${fileName}`) || "[]")
     };
   }
 
-  async function uploadFileOpnameToCloudWithTimestamp() {
-    const data = getAllOpnameDataWithTimestamp();
-    const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
-    const path = fileName.endsWith('.json') 
-      ? `opname-files/${fileName}`
-      : `opname-files/${fileName}.json`;
-    const { error } = await supabase.storage.from(BUCKET_NAME).upload(path, blob, { upsert: true });
-    if (error) {
-      console.error("Gagal sync cloud:", error.message);
-    }
-  }
-
-  async function downloadFileOpnameFromCloudWithTimestamp() {
-    const path = fileName.endsWith('.json') 
-      ? `opname-files/${fileName}`
-      : `opname-files/${fileName}.json`;
-    const { data, error } = await supabase.storage.from(BUCKET_NAME).download(path);
-    let obj = null;
-    if (!error && data) {
-      try {
-        const text = await data.text();
-        obj = JSON.parse(text);
-      } catch (e) { obj = null; }
-    }
-    return obj;
-  }
-
-  // ==== SINKRONISASI SATU TOMBOL AMAN MULTI USER + PATCH INCOGNITO ====
   async function syncCloud() {
     const btn = document.getElementById("btnSyncCloud");
     btn.disabled = true;
     btn.textContent = "⏳ Sinkronisasi...";
 
-    const cloudData = await downloadFileOpnameFromCloudWithTimestamp();
+    // 1. Download data cloud
+    const path = `opname-files/${fileName}.json`;
+    let cloudData = null;
+    try {
+      const { data, error } = await supabase.storage.from(BUCKET_NAME).download(path);
+      if (!error && data) {
+        const text = await data.text();
+        cloudData = JSON.parse(text);
+      }
+    } catch (e) { cloudData = null; }
     const localTs = getLastUpdateLocal();
     const cloudTs = cloudData && cloudData.lastUpdate ? parseInt(cloudData.lastUpdate) : 0;
 
-    const localDataIsEmpty =
-      (!localStorage.getItem(`opnameData_${fileName}`) ||
-        localStorage.getItem(`opnameData_${fileName}`) === "[]") &&
-      (!localStorage.getItem(`saldoAwal_perlengkapan_${fileName}`) ||
-        localStorage.getItem(`saldoAwal_perlengkapan_${fileName}`) === "[]") &&
-      (!localStorage.getItem(`saldoAwal_persediaan_${fileName}`) ||
-        localStorage.getItem(`saldoAwal_persediaan_${fileName}`) === "[]");
-
-    if (localDataIsEmpty && cloudTs > 0) {
+    // 2. Bandingkan timestamp
+    if (cloudTs > localTs) {
+      // Cloud lebih baru → timpa local
       if (cloudData.saldoAwal_perlengkapan) localStorage.setItem(`saldoAwal_perlengkapan_${fileName}`, JSON.stringify(cloudData.saldoAwal_perlengkapan));
       if (cloudData.saldoAwal_persediaan) localStorage.setItem(`saldoAwal_persediaan_${fileName}`, JSON.stringify(cloudData.saldoAwal_persediaan));
-      let merged = [];
-      if (cloudData.opnameData_perlengkapan) merged = merged.concat(cloudData.opnameData_perlengkapan.map(x => ({...x, kategori: "Perlengkapan"})));
-      if (cloudData.opnameData_room) merged = merged.concat(cloudData.opnameData_room.map(x => ({...x, kategori: "Room"})));
-      if (cloudData.opnameData_persediaan) merged = merged.concat(cloudData.opnameData_persediaan.map(x => ({...x, kategori: "Persediaan"})));
-      localStorage.setItem(`opnameData_${fileName}`, JSON.stringify(merged));
+      if (cloudData.opnameData) localStorage.setItem(`opnameData_${fileName}`, JSON.stringify(cloudData.opnameData));
       setLastUpdateLocal(cloudTs);
-      alert("Local kosong. Data cloud diimpor ke local.");
-    } else if (cloudTs > localTs) {
-      if (cloudData.saldoAwal_perlengkapan) localStorage.setItem(`saldoAwal_perlengkapan_${fileName}`, JSON.stringify(cloudData.saldoAwal_perlengkapan));
-      if (cloudData.saldoAwal_persediaan) localStorage.setItem(`saldoAwal_persediaan_${fileName}`, JSON.stringify(cloudData.saldoAwal_persediaan));
-      let merged = [];
-      if (cloudData.opnameData_perlengkapan) merged = merged.concat(cloudData.opnameData_perlengkapan.map(x => ({...x, kategori: "Perlengkapan"})));
-      if (cloudData.opnameData_room) merged = merged.concat(cloudData.opnameData_room.map(x => ({...x, kategori: "Room"})));
-      if (cloudData.opnameData_persediaan) merged = merged.concat(cloudData.opnameData_persediaan.map(x => ({...x, kategori: "Persediaan"})));
-      localStorage.setItem(`opnameData_${fileName}`, JSON.stringify(merged));
-      setLastUpdateLocal(cloudTs);
-      alert("Data cloud lebih baru! Data lokal diperbarui dari cloud.");
+      alert("Data cloud lebih baru. Local diperbarui dari cloud.");
     } else if (localTs > cloudTs) {
-      await uploadFileOpnameToCloudWithTimestamp();
-      alert("Data lokal lebih baru! Data cloud diperbarui.");
+      // Local lebih baru → upload ke cloud
+      const data = getAllDataWithTimestamp();
+      const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
+      const { error } = await supabase.storage.from(BUCKET_NAME).upload(path, blob, { upsert: true });
+      if (error) {
+        alert("Upload gagal: " + error.message);
+      } else {
+        alert("Data lokal diupload & cloud diperbarui!");
+      }
     } else {
-      alert("Data lokal & cloud sudah sinkron.");
+      alert("Data sudah sinkron.");
     }
 
+    // Refresh tampilan
     displaySaldoAwal();
     displaySaldoAwalPs();
     refreshHasilOpname();
     refreshHasilOpnamePs();
-    btn.disabled = false;
-    btn.textContent = "🔄 Sinkron Cloud";
 
+    btn.disabled = false;
+    btn.textContent = "🔄 Sinkronisasi Cloud (Upload & Download)";
     localStorage.setItem('forceReload', Date.now().toString());
   }
 
   document.getElementById("btnSyncCloud").addEventListener("click", syncCloud);
 
-  window.exportHasilOpname = function() { alert("Export belum diimplementasikan."); }
-  window.exportHasilOpnamePs = function() { alert("Export belum diimplementasikan."); }
-
-  downloadFileOpnameFromCloudWithTimestamp().then(cloudData => {
-    const localTs = getLastUpdateLocal();
-    const cloudTs = cloudData && cloudData.lastUpdate ? parseInt(cloudData.lastUpdate) : 0;
-    if (cloudTs > localTs) {
-      if (cloudData.saldoAwal_perlengkapan) localStorage.setItem(`saldoAwal_perlengkapan_${fileName}`, JSON.stringify(cloudData.saldoAwal_perlengkapan));
-      if (cloudData.saldoAwal_persediaan) localStorage.setItem(`saldoAwal_persediaan_${fileName}`, JSON.stringify(cloudData.saldoAwal_persediaan));
-      let merged = [];
-      if (cloudData.opnameData_perlengkapan) merged = merged.concat(cloudData.opnameData_perlengkapan.map(x => ({...x, kategori: "Perlengkapan"})));
-      if (cloudData.opnameData_room) merged = merged.concat(cloudData.opnameData_room.map(x => ({...x, kategori: "Room"})));
-      if (cloudData.opnameData_persediaan) merged = merged.concat(cloudData.opnameData_persediaan.map(x => ({...x, kategori: "Persediaan"})));
-      localStorage.setItem(`opnameData_${fileName}`, JSON.stringify(merged));
-      setLastUpdateLocal(cloudTs);
-    }
-    displaySaldoAwal();
-    displaySaldoAwalPs();
-    refreshHasilOpname();
-    refreshHasilOpnamePs();
-  });
+  // Sinkronisasi awal saat halaman dibuka
+  syncCloud();
 
   window.addEventListener('storage', function(e) {
     if (e.key === 'forceReload') {
