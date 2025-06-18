@@ -18,6 +18,10 @@
     table { width: 100%; border-collapse: collapse; margin-top: 10px; }
     th, td { border: 1px solid #ccc; padding: 8px; }
     a.info-link { color: #007bff; text-decoration: underline; cursor: pointer; }
+    .cloud-upload-btn { background: #28a745; }
+    #saldoAwalCloudStatus, #saldoAwalPsCloudStatus {
+      margin-left: 1em; color: #28a745; font-weight: bold;
+    }
   </style>
 </head>
 <body>
@@ -43,12 +47,16 @@
     <h2>📥 Saldo Awal Perlengkapan OS</h2>
     <input type="file" id="uploadSaldo" accept=".xlsx">
     <button onclick="clearSaldoAwal()">🗑️ Hapus Data</button>
+    <button class="btn cloud-upload-btn" id="uploadSaldoAwalCloudBtn">⬆️ Upload ke Cloud</button>
+    <span id="saldoAwalCloudStatus"></span>
     <table><thead><tr><th>Kode</th><th>Nama</th><th>Jumlah</th></tr></thead><tbody id="saldoAwalTable"></tbody></table>
   </div>
   <div id="saldoawalps" class="tab-content">
     <h2>📥 Saldo Awal Persediaan OS</h2>
     <input type="file" id="uploadSaldoPs" accept=".xlsx">
     <button onclick="clearSaldoAwalPs()">🗑️ Hapus Data</button>
+    <button class="btn cloud-upload-btn" id="uploadSaldoAwalPsCloudBtn">⬆️ Upload ke Cloud</button>
+    <span id="saldoAwalPsCloudStatus"></span>
     <table><thead><tr><th>Kode</th><th>Nama</th><th>Jumlah</th></tr></thead><tbody id="saldoAwalTablePs"></tbody></table>
   </div>
   <div id="hasilopname" class="tab-content">
@@ -117,14 +125,14 @@ document.addEventListener("DOMContentLoaded", function() {
 
   // ==== SALDO AWAL PERLENGKAPAN ====
   function displaySaldoAwal() {
-  const data = JSON.parse(localStorage.getItem(`saldoAwal_perlengkapan_${fileName}`)) || [];
-  const tbody = document.getElementById("saldoAwalTable");
-  tbody.innerHTML = data
-    .map(normalizeKey)
-    .filter(item => item.kode && item.nama && item.jumlah) // hanya tampilkan yang valid
-    .map(item =>
-      `<tr><td>${item.kode}</td><td>${item.nama}</td><td>${item.jumlah}</td></tr>`
-    ).join("");
+    const data = JSON.parse(localStorage.getItem(`saldoAwal_perlengkapan_${fileName}`)) || [];
+    const tbody = document.getElementById("saldoAwalTable");
+    tbody.innerHTML = data
+      .map(normalizeKey)
+      .filter(item => item.kode && item.nama && item.jumlah)
+      .map(item =>
+        `<tr><td>${item.kode}</td><td>${item.nama}</td><td>${item.jumlah}</td></tr>`
+      ).join("");
   }
   window.clearSaldoAwal = function() {
     localStorage.removeItem(`saldoAwal_perlengkapan_${fileName}`);
@@ -144,11 +152,32 @@ document.addEventListener("DOMContentLoaded", function() {
     };
     reader.readAsArrayBuffer(e.target.files[0]);
   });
-  displaySaldoAwalPs();
+  displaySaldoAwal();
 
-  function updateLastUpdate() {
-    setLastUpdateLocal(Date.now());
-  }
+  // ==== UPLOAD SALDO AWAL PERLENGKAPAN KE CLOUD ====
+  document.getElementById("uploadSaldoAwalCloudBtn").addEventListener("click", async function() {
+    const statusEl = document.getElementById("saldoAwalCloudStatus");
+    statusEl.textContent = "Uploading...";
+    const key = `saldoAwal_perlengkapan_${fileName}`;
+    const folder = "saldo-awal/perlengkapan";
+    const data = localStorage.getItem(key);
+    if (!data) {
+      statusEl.textContent = "❌ Belum ada data saldo awal!";
+      return;
+    }
+    const filePath = `${folder}/saldo-awal-${fileName}-${Date.now()}.json`;
+    const { error } = await supabase.storage.from(BUCKET_NAME).upload(filePath, data, {
+      contentType: "application/json",
+      upsert: true
+    });
+    if (error) {
+      statusEl.textContent = "❌ Upload gagal: " + error.message;
+    } else {
+      statusEl.textContent = "✔️ Berhasil upload saldo awal ke cloud";
+      setTimeout(() => statusEl.textContent = "", 2500);
+    }
+  });
+
   // ==== SALDO AWAL PERSEDIAAN ====
   function displaySaldoAwalPs() {
     const data = JSON.parse(localStorage.getItem(`saldoAwal_persediaan_${fileName}`)) || [];
@@ -177,6 +206,30 @@ document.addEventListener("DOMContentLoaded", function() {
     reader.readAsArrayBuffer(e.target.files[0]);
   });
   displaySaldoAwalPs();
+
+  // ==== UPLOAD SALDO AWAL PERSEDIAAN KE CLOUD ====
+  document.getElementById("uploadSaldoAwalPsCloudBtn").addEventListener("click", async function() {
+    const statusEl = document.getElementById("saldoAwalPsCloudStatus");
+    statusEl.textContent = "Uploading...";
+    const key = `saldoAwal_persediaan_${fileName}`;
+    const folder = "saldo-awal/persediaan";
+    const data = localStorage.getItem(key);
+    if (!data) {
+      statusEl.textContent = "❌ Belum ada data saldo awal!";
+      return;
+    }
+    const filePath = `${folder}/saldo-awal-${fileName}-${Date.now()}.json`;
+    const { error } = await supabase.storage.from(BUCKET_NAME).upload(filePath, data, {
+      contentType: "application/json",
+      upsert: true
+    });
+    if (error) {
+      statusEl.textContent = "❌ Upload gagal: " + error.message;
+    } else {
+      statusEl.textContent = "✔️ Berhasil upload saldo awal ke cloud";
+      setTimeout(() => statusEl.textContent = "", 2500);
+    }
+  });
 
   function updateLastUpdate() {
     setLastUpdateLocal(Date.now());
