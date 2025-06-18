@@ -423,31 +423,6 @@ document.addEventListener("DOMContentLoaded", function() {
   });
 
 });
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-
-<script>
-// Fungsi utilitas untuk export ke Excel
-function exportTableToExcel(tableId, filename = "opname.xlsx") {
-  const table = document.getElementById(tableId);
-  if (!table) {
-    alert("Tabel tidak ditemukan: " + tableId);
-    return;
-  }
-  const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.table_to_sheet(table);
-  XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
-  XLSX.writeFile(wb, filename);
-}
-
-// Fungsi export untuk Hasil Opname Perlengkapan
-window.exportHasilOpname = function() {
-  exportTableToExcel("hasilOpnameTable", `HasilOpnamePerlengkapan_${fileName}.xlsx`);
-};
-
-// Fungsi export untuk Hasil Opname Persediaan
-window.exportHasilOpnamePs = function() {
-  exportTableToExcel("hasilOpnameTablePs", `HasilOpnamePersediaan_${fileName}.xlsx`);
-};
-</script>
+ </script>
 </body>
 </html>
