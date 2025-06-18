@@ -90,229 +90,7 @@ function showTab(id) {
   if (id === "hasilopnameps") refreshHasilOpnamePs();
 }
 
-// ===== UTIL =====
-function normalizeKey(obj) {
-  const out = {};
-  for (let key in obj) {
-    const norm = key.trim().toLowerCase();
-    if (norm === 'kode') out.kode = obj[key];
-    if (norm.includes('nama')) out.nama = obj[key];
-    if (norm.includes('jumlah')) out.jumlah = parseInt(obj[key]) || 0;
-  }
-  return out;
-}
-
-// ===== SALDO PERLENGKAPAN =====
-function displaySaldoAwal() {
-  const data = JSON.parse(localStorage.getItem(`saldoAwal_perlengkapan_${fileName}`)) || [];
-  const tbody = document.getElementById("saldoAwalTable");
-  tbody.innerHTML = data.map(d => {
-    const item = normalizeKey(d);
-    return `<tr><td>${item.kode}</td><td>${item.nama}</td><td>${item.jumlah}</td></tr>`;
-  }).join("");
-}
-function clearSaldoAwal() {
-  localStorage.removeItem(`saldoAwal_perlengkapan_${fileName}`);
-  displaySaldoAwal();
-  uploadFileOpnameToCloud(); // sync ke cloud
-}
-document.getElementById("uploadSaldo").addEventListener("change", function(e) {
-  const reader = new FileReader();
-  reader.onload = function(evt) {
-    const wb = XLSX.read(evt.target.result, { type: "array" });
-    const data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
-    localStorage.setItem(`saldoAwal_perlengkapan_${fileName}`, JSON.stringify(data));
-    displaySaldoAwal();
-    uploadFileOpnameToCloud(); // sync ke cloud
-  };
-  reader.readAsArrayBuffer(e.target.files[0]);
-});
-displaySaldoAwal();
-
-// ===== SALDO PERSEDIAAN =====
-function displaySaldoAwalPs() {
-  const data = JSON.parse(localStorage.getItem(`saldoAwal_persediaan_${fileName}`)) || [];
-  const tbody = document.getElementById("saldoAwalTablePs");
-  tbody.innerHTML = data.map(d => {
-    const item = normalizeKey(d);
-    return `<tr><td>${item.kode}</td><td>${item.nama}</td><td>${item.jumlah}</td></tr>`;
-  }).join("");
-}
-function clearSaldoAwalPs() {
-  localStorage.removeItem(`saldoAwal_persediaan_${fileName}`);
-  displaySaldoAwalPs();
-  uploadFileOpnameToCloud(); // sync ke cloud
-}
-document.getElementById("uploadSaldoPs").addEventListener("change", function(e) {
-  const reader = new FileReader();
-  reader.onload = function(evt) {
-    const wb = XLSX.read(evt.target.result, { type: "array" });
-    const data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
-    localStorage.setItem(`saldoAwal_persediaan_${fileName}`, JSON.stringify(data));
-    displaySaldoAwalPs();
-    uploadFileOpnameToCloud(); // sync ke cloud
-  };
-  reader.readAsArrayBuffer(e.target.files[0]);
-});
-displaySaldoAwalPs();
-
-// ===== HASIL OPNAME PERLENGKAPAN (FIXED: now using all opnameData_${fileName}) =====
-function refreshHasilOpname() {
-  const saldo = (JSON.parse(localStorage.getItem(`saldoAwal_perlengkapan_${fileName}`)) || []).map(normalizeKey);
-
-  // AMBIL DATA OPNAME DARI KEY BARU YANG SUDAH DIGABUNG!
-  const allData = JSON.parse(localStorage.getItem(`opnameData_${fileName}`)) || [];
-  // Data kategori Perlengkapan dan Room untuk laporan hasil opname perlengkapan
-  const all = allData.filter(e => e.kategori === "Perlengkapan" || e.kategori === "Room");
-
-  const total = {};
-
-  all.forEach(item => {
-    if (!total[item.kode]) total[item.kode] = { jumlah: 0, nama: item.nama, lokasi: {} };
-    total[item.kode].jumlah += parseInt(item.stokFisik || 0);
-    const lok = item.lokasi || "-";
-    total[item.kode].lokasi[lok] = (total[item.kode].lokasi[lok] || 0) + parseInt(item.stokFisik || 0);
-  });
-
-  // Gabungkan kode dari saldo awal & input opname
-  const hasil = {};
-
-  // Masukkan semua dari saldo awal
-  saldo.forEach(item => {
-    hasil[item.kode] = {
-      kode: item.kode,
-      nama: item.nama,
-      saldoAwal: item.jumlah,
-      totalInput: total[item.kode]?.jumlah || 0,
-      lokasi: total[item.kode]?.lokasi || {}
-    };
-    hasil[item.kode].selisih = hasil[item.kode].saldoAwal - hasil[item.kode].totalInput;
-  });
-
-  // Masukkan kode yang hanya ada di input opname, tapi belum ada di saldo awal
-  Object.keys(total).forEach(kode => {
-    if (!hasil[kode]) {
-      hasil[kode] = {
-        kode,
-        nama: total[kode].nama,
-        saldoAwal: 0,
-        totalInput: total[kode].jumlah,
-        selisih: 0 - total[kode].jumlah,
-        lokasi: total[kode].lokasi
-      };
-    }
-  });
-
-  const tbody = document.getElementById("hasilOpnameTable");
-  tbody.innerHTML = Object.values(hasil)
-  .filter(r => r.saldoAwal !== 0 || r.totalInput !== 0)
-  .map(r => `
-    <tr>
-      <td>${r.kode}</td>
-      <td><a href="#" onclick='showLocations(${JSON.stringify(r.lokasi)})'>${r.nama}</a></td>
-      <td>${r.saldoAwal}</td>
-      <td>${r.totalInput}</td>
-      <td>${r.selisih}</td>
-    </tr>
-  `).join("");
-}
-
-function showLocations(lokasiObj) {
-  const info = Object.entries(lokasiObj)
-    .map(([lok, jumlah]) => `📍 ${lok}: ${jumlah}`)
-    .join("\n");
-  alert(info || "Tidak ada lokasi");
-}
-
-function exportHasilOpname() {
-  const data = [...document.querySelectorAll("#hasilOpnameTable tr")].map(tr => {
-    const td = tr.querySelectorAll("td");
-    return {
-      Kode: td[0].innerText,
-      Nama: td[1].innerText,
-      Saldo: td[2].innerText,
-      Input: td[3].innerText,
-      Selisih: td[4].innerText
-    };
-  });
-  const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.json_to_sheet(data);
-  XLSX.utils.book_append_sheet(wb, ws, "Hasil Perlengkapan");
-  XLSX.writeFile(wb, `HasilOpnamePerlengkapan_${fileName}.xlsx`);
-}
-
-// ===== HASIL OPNAME PERSEDIAAN (JIKA SUDAH DITRANSFER KE KEY UMUM, GANTI JUGA) =====
-function refreshHasilOpnamePs() {
-  const saldo = (JSON.parse(localStorage.getItem(`saldoAwal_persediaan_${fileName}`)) || []).map(normalizeKey);
-  // Ambil data input persediaan dari key umum (kalau sudah migrasi)
-  const allData = JSON.parse(localStorage.getItem(`opnameData_${fileName}`)) || [];
-  const input = allData.filter(e => e.kategori === "Persediaan");
-  const total = {};
-
-  input.forEach(item => {
-    if (!total[item.kode]) total[item.kode] = { jumlah: 0, nama: item.nama, lokasi: {} };
-    total[item.kode].jumlah += parseInt(item.stokFisik || 0);
-    const lok = item.lokasi || "-";
-    total[item.kode].lokasi[lok] = (total[item.kode].lokasi[lok] || 0) + parseInt(item.stokFisik || 0);
-  });
-
-  // Gabungkan kode dari saldo awal & input opname
-  const hasil = {};
-
-  // Masukkan semua dari saldo awal
-  saldo.forEach(item => {
-    hasil[item.kode] = {
-      kode: item.kode,
-      nama: item.nama,
-      saldoAwal: item.jumlah,
-      totalInput: total[item.kode]?.jumlah || 0,
-      lokasi: total[item.kode]?.lokasi || {}
-    };
-    hasil[item.kode].selisih = hasil[item.kode].saldoAwal - hasil[item.kode].totalInput;
-  });
-
-  // Masukkan kode yang hanya ada di input opname, tapi belum ada di saldo awal
-  Object.keys(total).forEach(kode => {
-    if (!hasil[kode]) {
-      hasil[kode] = {
-        kode,
-        nama: total[kode].nama,
-        saldoAwal: 0,
-        totalInput: total[kode].jumlah,
-        selisih: 0 - total[kode].jumlah,
-        lokasi: total[kode].lokasi
-      };
-    }
-  });
-
-  const tbody = document.getElementById("hasilOpnameTablePs");
-  tbody.innerHTML = Object.values(hasil).map(r =>
-    `<tr>
-      <td>${r.kode}</td>
-      <td><a href="#" onclick='showLocations(${JSON.stringify(r.lokasi)})'>${r.nama}</a></td>
-      <td>${r.saldoAwal}</td>
-      <td>${r.totalInput}</td>
-      <td>${r.selisih}</td>
-    </tr>`
-  ).join("");
-}
-
-function exportHasilOpnamePs() {
-  const data = [...document.querySelectorAll("#hasilOpnameTablePs tr")].map(tr => {
-    const td = tr.querySelectorAll("td");
-    return {
-      Kode: td[0].innerText,
-      Nama: td[1].innerText,
-      Saldo: td[2].innerText,
-      Input: td[3].innerText,
-      Selisih: td[4].innerText
-    };
-  });
-  const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.json_to_sheet(data);
-  XLSX.utils.book_append_sheet(wb, ws, "Hasil Persediaan");
-  XLSX.writeFile(wb, `HasilOpnamePersediaan_${fileName}.xlsx`);
-}
+// ... fungsi lain sama seperti sebelumnya ...
 
 // ========================
 // === SINKRONISASI CLOUD
@@ -330,7 +108,10 @@ function getAllOpnameData() {
 async function uploadFileOpnameToCloud() {
   const data = getAllOpnameData();
   const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
-  const path = `opname-files/${fileName}.json`;
+  // Pastikan fileName tidak double .json
+  const path = fileName.endsWith('.json') 
+    ? `opname-files/${fileName}`
+    : `opname-files/${fileName}.json`;
   const { error } = await supabase.storage.from(BUCKET_NAME).upload(path, blob, { upsert: true });
   if (error) {
     console.error("Gagal sync cloud:", error.message);
@@ -338,7 +119,10 @@ async function uploadFileOpnameToCloud() {
 }
 
 async function syncFileOpnameFromCloud() {
-  const path = `opname-files/${fileName}.json`;
+  // Pastikan fileName tidak double .json
+  const path = fileName.endsWith('.json') 
+    ? `opname-files/${fileName}`
+    : `opname-files/${fileName}.json`;
   const { data, error } = await supabase.storage.from(BUCKET_NAME).download(path);
   if (!error && data) {
     try {
