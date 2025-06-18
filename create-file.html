@@ -59,7 +59,8 @@
 
       // Nama file konsisten (tanpa karakter aneh/spasi)
       const cleanFileName = `${fileNameRaw.replace(/[^a-zA-Z0-9_-]/g, "_")}_${fileDate}`;
-      const path = `opname-files/${cleanFileName}.json`;
+      const fullFileName = cleanFileName.endsWith('.json') ? cleanFileName : cleanFileName + '.json';
+      const path = `opname-files/${fullFileName}`;
 
       // Data awal kosong untuk file opname
       const dataAwal = {
@@ -75,7 +76,7 @@
       let { data: existing, error: errorCheck } = await supabase
         .storage
         .from(BUCKET_NAME)
-        .list('opname-files', { search: `${cleanFileName}.json` });
+        .list('opname-files', { search: fullFileName });
 
       if (existing && existing.length > 0) {
         document.getElementById("progress").textContent = "";
@@ -99,9 +100,9 @@
 
       document.getElementById("progress").textContent = "✅ File opname berhasil dibuat. Mengalihkan ke input...";
 
-      // Redirect ke halaman input opname dengan membawa parameter file yang benar
+      // Redirect ke halaman input opname dengan parameter file yang sudah benar (termasuk .json)
       setTimeout(() => {
-        window.location.href = `input-opname.html?file=${encodeURIComponent(cleanFileName)}`;
+        window.location.href = `input-opname.html?file=${encodeURIComponent(fullFileName)}`;
       }, 900);
     });
   </script>
