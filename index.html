@@ -55,46 +55,53 @@
       }
     });
 
-      // Tampilkan daftar file opname dari Supabase Storage (cloud)
+    // Tampilkan daftar file opname dari Supabase Storage (cloud)
     async function loadCloudFiles() {
-  const fileList = document.getElementById("fileList");
-  const fileError = document.getElementById("fileError");
-  fileError.textContent = "";
-  fileList.innerHTML = "<li>Mengambil data file dari cloud...</li>";
+      const fileList = document.getElementById("fileList");
+      const fileError = document.getElementById("fileError");
+      fileError.textContent = "";
+      fileList.innerHTML = "<li>Mengambil data file dari cloud...</li>";
 
-  // Ambil daftar file dari folder user-files di bucket
-  const { data, error } = await supabase
-    .storage
-    .from(BUCKET_NAME)
-    .list("opname-files", { limit: 100, offset: 0 });
+      // Ambil daftar file dari folder opname-files di bucket
+      const { data, error } = await supabase
+        .storage
+        .from(BUCKET_NAME)
+        .list("opname-files", { limit: 100, offset: 0 });
 
-  fileList.innerHTML = "";
+      fileList.innerHTML = "";
 
-  if (error) {
-    fileError.textContent = "Gagal mengambil daftar file cloud.";
-    return;
-  }
-  if (!data || data.length === 0) {
-    fileList.innerHTML = "<p>Belum ada file opname di cloud.</p>";
-    return;
-  }
+      if (error) {
+        fileError.textContent = "Gagal mengambil daftar file cloud.";
+        return;
+      }
+      if (!data || data.length === 0) {
+        fileList.innerHTML = "<p>Belum ada file opname di cloud.</p>";
+        return;
+      }
 
-  // Urutkan file (terbaru di atas jika ada info tanggal)
-  data.sort((a,b) => b.created_at && a.created_at ? (new Date(b.created_at)-new Date(a.created_at)) : 0);
+      // Filter Hapus .emptyFolderPlaceholder
+      const filtered = data.filter(file => file.name !== '.emptyFolderPlaceholder');
+      if (filtered.length === 0) {
+        fileList.innerHTML = "<p>Belum ada file opname di cloud.</p>";
+        return;
+      }
 
-  data.forEach(file => {
-    // Dapatkan public URL
-    const publicUrl = supabase.storage.from(BUCKET_NAME).getPublicUrl('opname-files/' + file.name).data.publicUrl;
-    const li = document.createElement("li");
-    li.innerHTML = `
-      <a href="input-opname.html?file=${encodeURIComponent(file.name)}" style="text-decoration:none; color:#00806a; font-weight:bold;">
-        ${file.name}
-      </a>
-      <br/>
-          `;
-    fileList.appendChild(li);
-  });
-}
+      // Urutkan file (terbaru di atas jika ada info tanggal)
+      filtered.sort((a,b) => b.created_at && a.created_at ? (new Date(b.created_at)-new Date(a.created_at)) : 0);
+
+      filtered.forEach(file => {
+        // Dapatkan public URL
+        const publicUrl = supabase.storage.from(BUCKET_NAME).getPublicUrl('opname-files/' + file.name).data.publicUrl;
+        const li = document.createElement("li");
+        li.innerHTML = `
+          <a href="input-opname.html?file=${encodeURIComponent(file.name)}" style="text-decoration:none; color:#00806a; font-weight:bold;">
+            ${file.name}
+          </a>
+          <br/>
+        `;
+        fileList.appendChild(li);
+      });
+    }
 
     // Logout dengan Supabase Auth
     async function logout() {
