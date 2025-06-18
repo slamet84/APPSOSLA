@@ -71,7 +71,7 @@
 // === SUPABASE SETUP ===
 const SUPABASE_URL = "https://yxwxqlufyzxroomjbuqh.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl4d3hxbHVmeXp4cm9vbWpidXFoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAwNDYxNDUsImV4cCI6MjA2NTYyMjE0NX0.wIlqtvkERpdHPaGyg8JufZL10M1noTi6hvTD6HPC36Q";
-const BUCKET_NAME = "uploads"; // <- nama storage bucket Anda di Supabase
+const BUCKET_NAME = "uploads";
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // === FILE HANDLING ===
@@ -90,11 +90,73 @@ function showTab(id) {
   if (id === "hasilopnameps") refreshHasilOpnamePs();
 }
 
-// ... fungsi lain sama seperti sebelumnya ...
+// UTIL untuk normalisasi key (misal: dari Excel)
+function normalizeKey(obj) {
+  const out = {};
+  for (let key in obj) {
+    const norm = key.trim().toLowerCase();
+    if (norm === 'kode') out.kode = obj[key];
+    if (norm.includes('nama')) out.nama = obj[key];
+    if (norm.includes('jumlah')) out.jumlah = parseInt(obj[key]) || 0;
+  }
+  return out;
+}
 
-// ========================
-// === SINKRONISASI CLOUD
-// ========================
+// ==== SALDO AWAL PERLENGKAPAN ====
+function displaySaldoAwal() {
+  const data = JSON.parse(localStorage.getItem(`saldoAwal_perlengkapan_${fileName}`)) || [];
+  const tbody = document.getElementById("saldoAwalTable");
+  tbody.innerHTML = data.map(d => {
+    const item = normalizeKey(d);
+    return `<tr><td>${item.kode || ""}</td><td>${item.nama || ""}</td><td>${item.jumlah || 0}</td></tr>`;
+  }).join("");
+}
+function clearSaldoAwal() {
+  localStorage.removeItem(`saldoAwal_perlengkapan_${fileName}`);
+  displaySaldoAwal();
+  uploadFileOpnameToCloud();
+}
+document.getElementById("uploadSaldo").addEventListener("change", function(e) {
+  const reader = new FileReader();
+  reader.onload = function(evt) {
+    const wb = XLSX.read(evt.target.result, { type: "array" });
+    const data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+    localStorage.setItem(`saldoAwal_perlengkapan_${fileName}`, JSON.stringify(data));
+    displaySaldoAwal();
+    uploadFileOpnameToCloud();
+  };
+  reader.readAsArrayBuffer(e.target.files[0]);
+});
+displaySaldoAwal();
+
+// ==== SALDO AWAL PERSEDIAAN ====
+function displaySaldoAwalPs() {
+  const data = JSON.parse(localStorage.getItem(`saldoAwal_persediaan_${fileName}`)) || [];
+  const tbody = document.getElementById("saldoAwalTablePs");
+  tbody.innerHTML = data.map(d => {
+    const item = normalizeKey(d);
+    return `<tr><td>${item.kode || ""}</td><td>${item.nama || ""}</td><td>${item.jumlah || 0}</td></tr>`;
+  }).join("");
+}
+function clearSaldoAwalPs() {
+  localStorage.removeItem(`saldoAwal_persediaan_${fileName}`);
+  displaySaldoAwalPs();
+  uploadFileOpnameToCloud();
+}
+document.getElementById("uploadSaldoPs").addEventListener("change", function(e) {
+  const reader = new FileReader();
+  reader.onload = function(evt) {
+    const wb = XLSX.read(evt.target.result, { type: "array" });
+    const data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+    localStorage.setItem(`saldoAwal_persediaan_${fileName}`, JSON.stringify(data));
+    displaySaldoAwalPs();
+    uploadFileOpnameToCloud();
+  };
+  reader.readAsArrayBuffer(e.target.files[0]);
+});
+displaySaldoAwalPs();
+
+// === SINKRONISASI CLOUD ===
 function getAllOpnameData() {
   return {
     saldoAwal_perlengkapan: JSON.parse(localStorage.getItem(`saldoAwal_perlengkapan_${fileName}`) || "[]"),
@@ -108,7 +170,6 @@ function getAllOpnameData() {
 async function uploadFileOpnameToCloud() {
   const data = getAllOpnameData();
   const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
-  // Pastikan fileName tidak double .json
   const path = fileName.endsWith('.json') 
     ? `opname-files/${fileName}`
     : `opname-files/${fileName}.json`;
@@ -119,7 +180,6 @@ async function uploadFileOpnameToCloud() {
 }
 
 async function syncFileOpnameFromCloud() {
-  // Pastikan fileName tidak double .json
   const path = fileName.endsWith('.json') 
     ? `opname-files/${fileName}`
     : `opname-files/${fileName}.json`;
@@ -147,23 +207,20 @@ async function syncFileOpnameFromCloud() {
   }
 }
 
+// Panggil saat load pertama & setelah sync cloud
 syncFileOpnameFromCloud().then(()=>{
   displaySaldoAwal();
   displaySaldoAwalPs();
-  refreshHasilOpname();
-  refreshHasilOpnamePs();
+  // ...refresh hasil opname kalau ada
 });
-</script>
-<!-- ====== SCRIPT TAMBAHAN UNTUK EVENT LISTENER TOMBOL SINKRONISASI CLOUD ====== -->
-<script>
+
+// SINKRONISASI BUTTON
 document.getElementById("btnSyncDownload").addEventListener("click", async function() {
   this.disabled = true;
   this.textContent = "⏳ Mengambil dari Cloud...";
   await syncFileOpnameFromCloud();
   displaySaldoAwal();
   displaySaldoAwalPs();
-  refreshHasilOpname();
-  refreshHasilOpnamePs();
   this.disabled = false;
   this.textContent = "⬇️ Ambil Dari Cloud";
   alert("Data telah diambil dari cloud dan diperbarui.");
