@@ -2,29 +2,431 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <title>Menu Input Opname</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>📋 Menu Input Opname</title>
+  <meta name="theme-color" content="#007bff">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    .btn { padding: 10px; background: #007bff; color: white; border: none; border-radius: 5px; margin: 5px; cursor: pointer; }
+    .tab-nav { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; }
+    .tab-nav button.active { background-color: #0056b3; color: white; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { border: 1px solid #ccc; padding: 8px; }
+    a.info-link { color: #007bff; text-decoration: underline; cursor: pointer; }
+  </style>
 </head>
 <body>
-  <h1>Menu Input Opname</h1>
-  <button id="syncBtn">Sinkron Cloud</button>
+<div class="container">
+  <h1>📋 Menu Input Opname</h1>
+  <button class="btn" id="btnSyncCloud">🔄 Sinkron Cloud</button>
   <p><strong>Nama File:</strong> <span id="fileNameDisplay"></span></p>
-  <!-- ... (konten lain) ... -->
+  <a href="index.html" class="btn">← Kembali ke Dashboard</a>
 
-  <script>
-  // Ambil nama file dari query string
-  const fileName = decodeURIComponent(new URLSearchParams(window.location.search).get("file") || "");
+  <div class="tab-nav">
+    <button onclick="showTab('menu', event)" class="active">📂 Menu</button>
+    <button onclick="showTab('saldoawal', event)">📥 Saldo Awal Perlengkapan OS</button>
+    <button onclick="showTab('saldoawalps', event)">📥 Saldo Awal Persediaan OS</button>
+    <button onclick="showTab('hasilopname', event)">📊 Hasil Opname Perlengkapan</button>
+    <button onclick="showTab('hasilopnameps', event)">📊 Hasil Opname Persediaan</button>
+  </div>
+  <div id="menu" class="tab-content active">
+    <a class="btn" id="btnPrl">🧾 Input Perlengkapan</a>
+    <a class="btn" id="btnPs">📦 Input Persediaan</a>
+    <a class="btn" id="btnRoom">🏠 Input Room</a>
+  </div>
+  <div id="saldoawal" class="tab-content">
+    <h2>📥 Saldo Awal Perlengkapan OS</h2>
+    <input type="file" id="uploadSaldo" accept=".xlsx">
+    <button onclick="clearSaldoAwal()">🗑️ Hapus Data</button>
+    <table><thead><tr><th>Kode</th><th>Nama</th><th>Jumlah</th></tr></thead><tbody id="saldoAwalTable"></tbody></table>
+  </div>
+  <div id="saldoawalps" class="tab-content">
+    <h2>📥 Saldo Awal Persediaan OS</h2>
+    <input type="file" id="uploadSaldoPs" accept=".xlsx">
+    <button onclick="clearSaldoAwalPs()">🗑️ Hapus Data</button>
+    <table><thead><tr><th>Kode</th><th>Nama</th><th>Jumlah</th></tr></thead><tbody id="saldoAwalTablePs"></tbody></table>
+  </div>
+  <div id="hasilopname" class="tab-content">
+    <h2>📊 Hasil Opname Perlengkapan</h2>
+    <button onclick="exportHasilOpname()">⬇️ Export Excel</button>
+    <table><thead><tr><th>Kode</th><th>Nama</th><th>Saldo</th><th>Input</th><th>Selisih</th></tr></thead><tbody id="hasilOpnameTable"></tbody></table>
+  </div>
+  <div id="hasilopnameps" class="tab-content">
+    <h2>📊 Hasil Opname Persediaan</h2>
+    <button onclick="exportHasilOpnamePs()">⬇️ Export Excel</button>
+    <table><thead><tr><th>Kode</th><th>Nama</th><th>Saldo</th><th>Input</th><th>Selisih</th></tr></thead><tbody id="hasilOpnameTablePs"></tbody></table>
+  </div>
+</div>
+
+<!-- Modal lokasi -->
+<div id="modalLokasi" style="display:none; position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:999;background:rgba(0,0,0,0.4)">
+  <div style="background:white;max-width:400px;margin:100px auto;padding:20px;border-radius:10px;position:relative">
+    <button style="position:absolute;top:10px;right:10px" onclick="closeModalLokasi()">✖</button>
+    <div id="modalLokasiContent"></div>
+  </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  // === SUPABASE SETUP ===
+  const SUPABASE_URL = "https://yxwxqlufyzxroomjbuqh.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl4d3hxbHVmeXp4cm9vbWpidXFoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAwNDYxNDUsImV4cCI6MjA2NTYyMjE0NX0.wIlqtvkERpdHPaGyg8JufZL10M1noTi6hvTD6HPC36Q";
+  const BUCKET_NAME = "uploads";
+  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  // === FILE HANDLING ===
+  const fileName = decodeURIComponent(new URLSearchParams(window.location.search).get("file") || "data");
   document.getElementById("fileNameDisplay").textContent = fileName;
+  document.getElementById("btnPrl").href = `input-perlengkapan.html?file=${encodeURIComponent(fileName)}`;
+  document.getElementById("btnPs").href = `input-persediaan.html?file=${encodeURIComponent(fileName)}`;
+  document.getElementById("btnRoom").href = `input-room.html?file=${encodeURIComponent(fileName)}`;
 
-  document.getElementById("syncBtn").onclick = syncCloud;
+  function getLastUpdateLocal() {
+    return parseInt(localStorage.getItem(`lastUpdate_${fileName}`) || "0");
+  }
+  function setLastUpdateLocal(ts) {
+    localStorage.setItem(`lastUpdate_${fileName}`, ts + "");
+  }
 
+  window.showTab = function(id, evt) {
+    document.querySelectorAll(".tab-content").forEach(el => el.classList.remove("active"));
+    document.querySelectorAll(".tab-nav button").forEach(btn => btn.classList.remove("active"));
+    document.getElementById(id).classList.add("active");
+    if (evt) evt.target.classList.add("active");
+    if (id === "hasilopname") refreshHasilOpname();
+    if (id === "hasilopnameps") refreshHasilOpnamePs();
+  };
+
+  function normalizeKey(obj) {
+    const out = {};
+    for (let key in obj) {
+      const norm = key.trim().toLowerCase();
+      if (norm === 'kode') out.kode = obj[key];
+      if (norm.includes('nama')) out.nama = obj[key];
+      if (norm.includes('jumlah')) out.jumlah = parseInt(obj[key]) || 0;
+      if (norm.includes('stokfisik') || norm.includes('stok_fisik')) out.stokFisik = parseInt(obj[key]) || 0;
+      if (norm.includes('lokasi') || norm.includes('room')) out.lokasi = obj[key] || obj['room'] || '';
+    }
+    return out;
+  }
+
+  // ==== SALDO AWAL PERLENGKAPAN ====
+  function displaySaldoAwal() {
+    const data = JSON.parse(localStorage.getItem(`saldoAwal_perlengkapan_${fileName}`)) || [];
+    const tbody = document.getElementById("saldoAwalTable");
+    tbody.innerHTML = data.map(d => {
+      const item = normalizeKey(d);
+      return `<tr><td>${item.kode || ""}</td><td>${item.nama || ""}</td><td>${item.jumlah || 0}</td></tr>`;
+    }).join("");
+  }
+  window.clearSaldoAwal = function() {
+    localStorage.removeItem(`saldoAwal_perlengkapan_${fileName}`);
+    updateLastUpdate();
+    displaySaldoAwal();
+    refreshHasilOpname();
+  }
+  document.getElementById("uploadSaldo").addEventListener("change", function(e) {
+    const reader = new FileReader();
+    reader.onload = function(evt) {
+      const wb = XLSX.read(evt.target.result, { type: "array" });
+      const data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+      localStorage.setItem(`saldoAwal_perlengkapan_${fileName}`, JSON.stringify(data));
+      updateLastUpdate();
+      displaySaldoAwal();
+      refreshHasilOpname();
+    };
+    reader.readAsArrayBuffer(e.target.files[0]);
+  });
+  displaySaldoAwal();
+
+  // ==== SALDO AWAL PERSEDIAAN ====
+  function displaySaldoAwalPs() {
+    const data = JSON.parse(localStorage.getItem(`saldoAwal_persediaan_${fileName}`)) || [];
+    const tbody = document.getElementById("saldoAwalTablePs");
+    tbody.innerHTML = data.map(d => {
+      const item = normalizeKey(d);
+      return `<tr><td>${item.kode || ""}</td><td>${item.nama || ""}</td><td>${item.jumlah || 0}</td></tr>`;
+    }).join("");
+  }
+  window.clearSaldoAwalPs = function() {
+    localStorage.removeItem(`saldoAwal_persediaan_${fileName}`);
+    updateLastUpdate();
+    displaySaldoAwalPs();
+    refreshHasilOpnamePs();
+  }
+  document.getElementById("uploadSaldoPs").addEventListener("change", function(e) {
+    const reader = new FileReader();
+    reader.onload = function(evt) {
+      const wb = XLSX.read(evt.target.result, { type: "array" });
+      const data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+      localStorage.setItem(`saldoAwal_persediaan_${fileName}`, JSON.stringify(data));
+      updateLastUpdate();
+      displaySaldoAwalPs();
+      refreshHasilOpnamePs();
+    };
+    reader.readAsArrayBuffer(e.target.files[0]);
+  });
+  displaySaldoAwalPs();
+
+  function updateLastUpdate() {
+    setLastUpdateLocal(Date.now());
+  }
+
+  // ==== HASIL OPNAME PERLENGKAPAN ====
+  window.refreshHasilOpname = function() {
+    const saldo = (JSON.parse(localStorage.getItem(`saldoAwal_perlengkapan_${fileName}`)) || []).map(normalizeKey);
+    const allData = JSON.parse(localStorage.getItem(`opnameData_${fileName}`)) || [];
+    const inputData = allData.filter(e => e.kategori === "Perlengkapan" || e.kategori === "Room");
+    const total = {};
+    inputData.forEach(item => {
+      if (!total[item.kode]) total[item.kode] = { jumlah: 0, nama: item.nama };
+      total[item.kode].jumlah += parseInt(item.stokFisik || 0);
+    });
+
+    const hasil = {};
+    saldo.forEach(item => {
+      hasil[item.kode] = {
+        kode: item.kode,
+        nama: item.nama,
+        saldoAwal: item.jumlah,
+        totalInput: total[item.kode]?.jumlah || 0,
+        selisih: item.jumlah - (total[item.kode]?.jumlah || 0)
+      };
+    });
+    Object.keys(total).forEach(kode => {
+      if (!hasil[kode]) {
+        hasil[kode] = {
+          kode,
+          nama: total[kode].nama,
+          saldoAwal: 0,
+          totalInput: total[kode].jumlah,
+          selisih: -total[kode].jumlah
+        };
+      }
+    });
+
+    const tbody = document.getElementById("hasilOpnameTable");
+    tbody.innerHTML = Object.values(hasil)
+      .filter(r => r.saldoAwal !== 0 || r.totalInput !== 0)
+      .map(r => `
+        <tr>
+          <td>${r.kode}</td>
+          <td><a href="#" class="info-link" onclick="showLokasi('${r.kode}','${r.nama}');return false;">${r.nama}</a></td>
+          <td>${r.saldoAwal}</td>
+          <td>${r.totalInput}</td>
+          <td>${r.selisih}</td>
+        </tr>
+      `).join("");
+  }
+
+  // ==== HASIL OPNAME PERSEDIAAN ====
+  window.refreshHasilOpnamePs = function() {
+    const saldo = (JSON.parse(localStorage.getItem(`saldoAwal_persediaan_${fileName}`)) || []).map(normalizeKey);
+    const allData = JSON.parse(localStorage.getItem(`opnameData_${fileName}`)) || [];
+    const inputData = allData.filter(e => e.kategori === "Persediaan");
+    const total = {};
+    inputData.forEach(item => {
+      if (!total[item.kode]) total[item.kode] = { jumlah: 0, nama: item.nama };
+      total[item.kode].jumlah += parseInt(item.stokFisik || 0);
+    });
+
+    const hasil = {};
+    saldo.forEach(item => {
+      hasil[item.kode] = {
+        kode: item.kode,
+        nama: item.nama,
+        saldoAwal: item.jumlah,
+        totalInput: total[item.kode]?.jumlah || 0,
+        selisih: item.jumlah - (total[item.kode]?.jumlah || 0)
+      };
+    });
+    Object.keys(total).forEach(kode => {
+      if (!hasil[kode]) {
+        hasil[kode] = {
+          kode,
+          nama: total[kode].nama,
+          saldoAwal: 0,
+          totalInput: total[kode].jumlah,
+          selisih: -total[kode].jumlah
+        };
+      }
+    });
+
+    const tbody = document.getElementById("hasilOpnameTablePs");
+    tbody.innerHTML = Object.values(hasil)
+      .filter(r => r.saldoAwal !== 0 || r.totalInput !== 0)
+      .map(r => `
+        <tr>
+          <td>${r.kode}</td>
+          <td><a href="#" class="info-link" onclick="showLokasi('${r.kode}','${r.nama}');return false;">${r.nama}</a></td>
+          <td>${r.saldoAwal}</td>
+          <td>${r.totalInput}</td>
+          <td>${r.selisih}</td>
+        </tr>
+      `).join("");
+  }
+
+  // ==== MODAL LOKASI ====
+  window.showLokasi = function(kode, nama) {
+    const allData = JSON.parse(localStorage.getItem(`opnameData_${fileName}`)) || [];
+    const dataLokasi = allData.filter(x => x.kode === kode);
+    let html = `<b>${nama} (${kode})</b><br>`;
+    if (dataLokasi.length) {
+      html += '<table border="1" style="width:100%;margin-top:10px;"><thead><tr><th>Lokasi</th><th>Jumlah</th></tr></thead><tbody>';
+      html += dataLokasi.map(x => `<tr><td>${x.lokasi || x.room || '-'}</td><td>${x.stokFisik || 0}</td></tr>`).join('');
+      html += '</tbody></table>';
+    } else {
+      html += '<i>Lokasi tidak ditemukan</i>';
+    }
+    document.getElementById("modalLokasiContent").innerHTML = html;
+    document.getElementById("modalLokasi").style.display = "block";
+  }
+  window.closeModalLokasi = function() {
+    document.getElementById("modalLokasi").style.display = "none";
+  }
+
+  // === SINKRONISASI CLOUD AMAN MULTI USER + PATCH INCOGNITO ===
+  function getAllOpnameDataWithTimestamp() {
+    return {
+      lastUpdate: getLastUpdateLocal(),
+      saldoAwal_perlengkapan: JSON.parse(localStorage.getItem(`saldoAwal_perlengkapan_${fileName}`) || "[]"),
+      saldoAwal_persediaan: JSON.parse(localStorage.getItem(`saldoAwal_persediaan_${fileName}`) || "[]"),
+      opnameData_perlengkapan: JSON.parse(localStorage.getItem(`opnameData_${fileName}`) || "[]").filter(e => e.kategori === "Perlengkapan"),
+      opnameData_persediaan: JSON.parse(localStorage.getItem(`opnameData_${fileName}`) || "[]").filter(e => e.kategori === "Persediaan"),
+      opnameData_room: JSON.parse(localStorage.getItem(`opnameData_${fileName}`) || "[]").filter(e => e.kategori === "Room")
+    };
+  }
+
+  async function uploadFileOpnameToCloudWithTimestamp() {
+    const data = getAllOpnameDataWithTimestamp();
+    const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
+    const path = fileName.endsWith('.json') 
+      ? `opname-files/${fileName}`
+      : `opname-files/${fileName}.json`;
+    const { error } = await supabase.storage.from(BUCKET_NAME).upload(path, blob, { upsert: true });
+    if (error) {
+      console.error("Gagal sync cloud:", error.message);
+    }
+  }
+
+  async function downloadFileOpnameFromCloudWithTimestamp() {
+    const path = fileName.endsWith('.json') 
+      ? `opname-files/${fileName}`
+      : `opname-files/${fileName}.json`;
+    const { data, error } = await supabase.storage.from(BUCKET_NAME).download(path);
+    let obj = null;
+    if (!error && data) {
+      try {
+        const text = await data.text();
+        obj = JSON.parse(text);
+      } catch (e) { obj = null; }
+    }
+    return obj;
+  }
+
+  // ==== SINKRONISASI SATU TOMBOL AMAN MULTI USER + PATCH INCOGNITO ====
   async function syncCloud() {
-    // ... kode sinkronisasi cloud Anda ...
-    // Setelah selesai sinkronisasi (sukses, data sudah diambil dari cloud dan tersimpan di localStorage):
-    alert("Sinkronisasi selesai! Semua halaman input akan di-refresh agar data terbaru tampil.");
+    const btn = document.getElementById("btnSyncCloud");
+    btn.disabled = true;
+    btn.textContent = "⏳ Sinkronisasi...";
+
+    // 1. Ambil data cloud
+    const cloudData = await downloadFileOpnameFromCloudWithTimestamp();
+    const localTs = getLastUpdateLocal();
+    const cloudTs = cloudData && cloudData.lastUpdate ? parseInt(cloudData.lastUpdate) : 0;
+
+    // Tambahan: Deteksi jika data lokal benar-benar kosong (bukan hanya timestamp)
+    const localDataIsEmpty =
+      (!localStorage.getItem(`opnameData_${fileName}`) ||
+        localStorage.getItem(`opnameData_${fileName}`) === "[]") &&
+      (!localStorage.getItem(`saldoAwal_perlengkapan_${fileName}`) ||
+        localStorage.getItem(`saldoAwal_perlengkapan_${fileName}`) === "[]") &&
+      (!localStorage.getItem(`saldoAwal_persediaan_${fileName}`) ||
+        localStorage.getItem(`saldoAwal_persediaan_${fileName}`) === "[]");
+
+    if (localDataIsEmpty && cloudTs > 0) {
+      // Local benar-benar kosong, langsung pakai data cloud
+      if (cloudData.saldoAwal_perlengkapan) localStorage.setItem(`saldoAwal_perlengkapan_${fileName}`, JSON.stringify(cloudData.saldoAwal_perlengkapan));
+      if (cloudData.saldoAwal_persediaan) localStorage.setItem(`saldoAwal_persediaan_${fileName}`, JSON.stringify(cloudData.saldoAwal_persediaan));
+      // PATCH: merge opnameData cloud ke opnameData_${fileName}
+      let merged = [];
+      if (cloudData.opnameData_perlengkapan) merged = merged.concat(cloudData.opnameData_perlengkapan.map(x => ({...x, kategori: "Perlengkapan"})));
+      if (cloudData.opnameData_room) merged = merged.concat(cloudData.opnameData_room.map(x => ({...x, kategori: "Room"})));
+      if (cloudData.opnameData_persediaan) merged = merged.concat(cloudData.opnameData_persediaan.map(x => ({...x, kategori: "Persediaan"})));
+      localStorage.setItem(`opnameData_${fileName}`, JSON.stringify(merged));
+      setLastUpdateLocal(cloudTs);
+      alert("Local kosong. Data cloud diimpor ke local.");
+    } else if (cloudTs > localTs) {
+      // Cloud lebih baru, timpa lokal
+      if (cloudData.saldoAwal_perlengkapan) localStorage.setItem(`saldoAwal_perlengkapan_${fileName}`, JSON.stringify(cloudData.saldoAwal_perlengkapan));
+      if (cloudData.saldoAwal_persediaan) localStorage.setItem(`saldoAwal_persediaan_${fileName}`, JSON.stringify(cloudData.saldoAwal_persediaan));
+      // PATCH: merge opnameData cloud ke opnameData_${fileName}
+      let merged = [];
+      if (cloudData.opnameData_perlengkapan) merged = merged.concat(cloudData.opnameData_perlengkapan.map(x => ({...x, kategori: "Perlengkapan"})));
+      if (cloudData.opnameData_room) merged = merged.concat(cloudData.opnameData_room.map(x => ({...x, kategori: "Room"})));
+      if (cloudData.opnameData_persediaan) merged = merged.concat(cloudData.opnameData_persediaan.map(x => ({...x, kategori: "Persediaan"})));
+      localStorage.setItem(`opnameData_${fileName}`, JSON.stringify(merged));
+      setLastUpdateLocal(cloudTs);
+      alert("Data cloud lebih baru! Data lokal diperbarui dari cloud.");
+    } else if (localTs > cloudTs) {
+      await uploadFileOpnameToCloudWithTimestamp();
+      alert("Data lokal lebih baru! Data cloud diperbarui.");
+    } else {
+      alert("Data lokal & cloud sudah sinkron.");
+    }
+
+    displaySaldoAwal();
+    displaySaldoAwalPs();
+    refreshHasilOpname();
+    refreshHasilOpnamePs();
+    btn.disabled = false;
+    btn.textContent = "🔄 Sinkron Cloud";
+
+    // PATCH: Trigger reload di halaman input lain/tab lain
     localStorage.setItem('forceReload', Date.now().toString());
   }
-  </script>
+
+  document.getElementById("btnSyncCloud").addEventListener("click", syncCloud);
+
+  // ==== Dummy Export (Supaya tombol tidak error) ====
+  window.exportHasilOpname = function() { alert("Export belum diimplementasikan."); }
+  window.exportHasilOpnamePs = function() { alert("Export belum diimplementasikan."); }
+
+  // ==== Sinkronisasi awal saat halaman dibuka ====
+  downloadFileOpnameFromCloudWithTimestamp().then(cloudData => {
+    const localTs = getLastUpdateLocal();
+    const cloudTs = cloudData && cloudData.lastUpdate ? parseInt(cloudData.lastUpdate) : 0;
+    if (cloudTs > localTs) {
+      // update lokal dari cloud
+      if (cloudData.saldoAwal_perlengkapan) localStorage.setItem(`saldoAwal_perlengkapan_${fileName}`, JSON.stringify(cloudData.saldoAwal_perlengkapan));
+      if (cloudData.saldoAwal_persediaan) localStorage.setItem(`saldoAwal_persediaan_${fileName}`, JSON.stringify(cloudData.saldoAwal_persediaan));
+      // PATCH: merge opnameData cloud ke opnameData_${fileName}
+      let merged = [];
+      if (cloudData.opnameData_perlengkapan) merged = merged.concat(cloudData.opnameData_perlengkapan.map(x => ({...x, kategori: "Perlengkapan"})));
+      if (cloudData.opnameData_room) merged = merged.concat(cloudData.opnameData_room.map(x => ({...x, kategori: "Room"})));
+      if (cloudData.opnameData_persediaan) merged = merged.concat(cloudData.opnameData_persediaan.map(x => ({...x, kategori: "Persediaan"})));
+      localStorage.setItem(`opnameData_${fileName}`, JSON.stringify(merged));
+      setLastUpdateLocal(cloudTs);
+    }
+    displaySaldoAwal();
+    displaySaldoAwalPs();
+    refreshHasilOpname();
+    refreshHasilOpnamePs();
+  });
+
+  // PATCH: Reload halaman input lain/tab lain jika forceReload berubah (sinkronisasi cloud)
+  window.addEventListener('storage', function(e) {
+    if (e.key === 'forceReload') {
+      window.location.reload();
+    }
+  });
+
+});
+</script>
 </body>
 </html>
