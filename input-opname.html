@@ -82,9 +82,9 @@ document.addEventListener("DOMContentLoaded", function() {
   // === FILE HANDLING ===
   const fileName = decodeURIComponent(new URLSearchParams(window.location.search).get("file") || "data");
   document.getElementById("fileNameDisplay").textContent = fileName;
-  document.getElementById("btnPrl").href = `input-perlengkapan.html?file=${fileName}`;
-  document.getElementById("btnPs").href = `input-persediaan.html?file=${fileName}`;
-  document.getElementById("btnRoom").href = `input-room.html?file=${fileName}`;
+  document.getElementById("btnPrl").href = `input-perlengkapan.html?file=${encodeURIComponent(fileName)}`;
+  document.getElementById("btnPs").href = `input-persediaan.html?file=${encodeURIComponent(fileName)}`;
+  document.getElementById("btnRoom").href = `input-room.html?file=${encodeURIComponent(fileName)}`;
 
   function getLastUpdateLocal() {
     return parseInt(localStorage.getItem(`lastUpdate_${fileName}`) || "0");
@@ -296,9 +296,9 @@ document.addEventListener("DOMContentLoaded", function() {
       lastUpdate: getLastUpdateLocal(),
       saldoAwal_perlengkapan: JSON.parse(localStorage.getItem(`saldoAwal_perlengkapan_${fileName}`) || "[]"),
       saldoAwal_persediaan: JSON.parse(localStorage.getItem(`saldoAwal_persediaan_${fileName}`) || "[]"),
-      opnameData_perlengkapan: JSON.parse(localStorage.getItem(`opnameData_perlengkapan_${fileName}`) || "[]"),
-      opnameData_persediaan: JSON.parse(localStorage.getItem(`opnameData_persediaan_${fileName}`) || "[]"),
-      opnameData_room: JSON.parse(localStorage.getItem(`opnameData_room_${fileName}`) || "[]")
+      opnameData_perlengkapan: JSON.parse(localStorage.getItem(`opnameData_${fileName}`) || "[]").filter(e => e.kategori === "Perlengkapan"),
+      opnameData_persediaan: JSON.parse(localStorage.getItem(`opnameData_${fileName}`) || "[]").filter(e => e.kategori === "Persediaan"),
+      opnameData_room: JSON.parse(localStorage.getItem(`opnameData_${fileName}`) || "[]").filter(e => e.kategori === "Room")
     };
   }
 
@@ -353,35 +353,25 @@ document.addEventListener("DOMContentLoaded", function() {
       // Local benar-benar kosong, langsung pakai data cloud
       if (cloudData.saldoAwal_perlengkapan) localStorage.setItem(`saldoAwal_perlengkapan_${fileName}`, JSON.stringify(cloudData.saldoAwal_perlengkapan));
       if (cloudData.saldoAwal_persediaan) localStorage.setItem(`saldoAwal_persediaan_${fileName}`, JSON.stringify(cloudData.saldoAwal_persediaan));
-      if (cloudData.opnameData_perlengkapan) localStorage.setItem(`opnameData_perlengkapan_${fileName}`, JSON.stringify(cloudData.opnameData_perlengkapan));
-      if (cloudData.opnameData_persediaan) localStorage.setItem(`opnameData_persediaan_${fileName}`, JSON.stringify(cloudData.opnameData_persediaan));
-      if (cloudData.opnameData_room) localStorage.setItem(`opnameData_room_${fileName}`, JSON.stringify(cloudData.opnameData_room));
+      // PATCH: merge opnameData cloud ke opnameData_${fileName}
+      let merged = [];
+      if (cloudData.opnameData_perlengkapan) merged = merged.concat(cloudData.opnameData_perlengkapan.map(x => ({...x, kategori: "Perlengkapan"})));
+      if (cloudData.opnameData_room) merged = merged.concat(cloudData.opnameData_room.map(x => ({...x, kategori: "Room"})));
+      if (cloudData.opnameData_persediaan) merged = merged.concat(cloudData.opnameData_persediaan.map(x => ({...x, kategori: "Persediaan"})));
+      localStorage.setItem(`opnameData_${fileName}`, JSON.stringify(merged));
       setLastUpdateLocal(cloudTs);
-      // Merge
-      if (cloudData.opnameData_perlengkapan || cloudData.opnameData_room || cloudData.opnameData_persediaan) {
-        let merged = [];
-        if (cloudData.opnameData_perlengkapan) merged = merged.concat(cloudData.opnameData_perlengkapan.map(x => ({...x, kategori: "Perlengkapan"})));
-        if (cloudData.opnameData_room) merged = merged.concat(cloudData.opnameData_room.map(x => ({...x, kategori: "Room"})));
-        if (cloudData.opnameData_persediaan) merged = merged.concat(cloudData.opnameData_persediaan.map(x => ({...x, kategori: "Persediaan"})));
-        if (merged.length) localStorage.setItem(`opnameData_${fileName}`, JSON.stringify(merged));
-      }
       alert("Local kosong. Data cloud diimpor ke local.");
     } else if (cloudTs > localTs) {
       // Cloud lebih baru, timpa lokal
       if (cloudData.saldoAwal_perlengkapan) localStorage.setItem(`saldoAwal_perlengkapan_${fileName}`, JSON.stringify(cloudData.saldoAwal_perlengkapan));
       if (cloudData.saldoAwal_persediaan) localStorage.setItem(`saldoAwal_persediaan_${fileName}`, JSON.stringify(cloudData.saldoAwal_persediaan));
-      if (cloudData.opnameData_perlengkapan) localStorage.setItem(`opnameData_perlengkapan_${fileName}`, JSON.stringify(cloudData.opnameData_perlengkapan));
-      if (cloudData.opnameData_persediaan) localStorage.setItem(`opnameData_persediaan_${fileName}`, JSON.stringify(cloudData.opnameData_persediaan));
-      if (cloudData.opnameData_room) localStorage.setItem(`opnameData_room_${fileName}`, JSON.stringify(cloudData.opnameData_room));
+      // PATCH: merge opnameData cloud ke opnameData_${fileName}
+      let merged = [];
+      if (cloudData.opnameData_perlengkapan) merged = merged.concat(cloudData.opnameData_perlengkapan.map(x => ({...x, kategori: "Perlengkapan"})));
+      if (cloudData.opnameData_room) merged = merged.concat(cloudData.opnameData_room.map(x => ({...x, kategori: "Room"})));
+      if (cloudData.opnameData_persediaan) merged = merged.concat(cloudData.opnameData_persediaan.map(x => ({...x, kategori: "Persediaan"})));
+      localStorage.setItem(`opnameData_${fileName}`, JSON.stringify(merged));
       setLastUpdateLocal(cloudTs);
-      // Merge
-      if (cloudData.opnameData_perlengkapan || cloudData.opnameData_room || cloudData.opnameData_persediaan) {
-        let merged = [];
-        if (cloudData.opnameData_perlengkapan) merged = merged.concat(cloudData.opnameData_perlengkapan.map(x => ({...x, kategori: "Perlengkapan"})));
-        if (cloudData.opnameData_room) merged = merged.concat(cloudData.opnameData_room.map(x => ({...x, kategori: "Room"})));
-        if (cloudData.opnameData_persediaan) merged = merged.concat(cloudData.opnameData_persediaan.map(x => ({...x, kategori: "Persediaan"})));
-        if (merged.length) localStorage.setItem(`opnameData_${fileName}`, JSON.stringify(merged));
-      }
       alert("Data cloud lebih baru! Data lokal diperbarui dari cloud.");
     } else if (localTs > cloudTs) {
       await uploadFileOpnameToCloudWithTimestamp();
@@ -412,18 +402,13 @@ document.addEventListener("DOMContentLoaded", function() {
       // update lokal dari cloud
       if (cloudData.saldoAwal_perlengkapan) localStorage.setItem(`saldoAwal_perlengkapan_${fileName}`, JSON.stringify(cloudData.saldoAwal_perlengkapan));
       if (cloudData.saldoAwal_persediaan) localStorage.setItem(`saldoAwal_persediaan_${fileName}`, JSON.stringify(cloudData.saldoAwal_persediaan));
-      if (cloudData.opnameData_perlengkapan) localStorage.setItem(`opnameData_perlengkapan_${fileName}`, JSON.stringify(cloudData.opnameData_perlengkapan));
-      if (cloudData.opnameData_persediaan) localStorage.setItem(`opnameData_persediaan_${fileName}`, JSON.stringify(cloudData.opnameData_persediaan));
-      if (cloudData.opnameData_room) localStorage.setItem(`opnameData_room_${fileName}`, JSON.stringify(cloudData.opnameData_room));
+      // PATCH: merge opnameData cloud ke opnameData_${fileName}
+      let merged = [];
+      if (cloudData.opnameData_perlengkapan) merged = merged.concat(cloudData.opnameData_perlengkapan.map(x => ({...x, kategori: "Perlengkapan"})));
+      if (cloudData.opnameData_room) merged = merged.concat(cloudData.opnameData_room.map(x => ({...x, kategori: "Room"})));
+      if (cloudData.opnameData_persediaan) merged = merged.concat(cloudData.opnameData_persediaan.map(x => ({...x, kategori: "Persediaan"})));
+      localStorage.setItem(`opnameData_${fileName}`, JSON.stringify(merged));
       setLastUpdateLocal(cloudTs);
-      // Merge
-      if (cloudData.opnameData_perlengkapan || cloudData.opnameData_room || cloudData.opnameData_persediaan) {
-        let merged = [];
-        if (cloudData.opnameData_perlengkapan) merged = merged.concat(cloudData.opnameData_perlengkapan.map(x => ({...x, kategori: "Perlengkapan"})));
-        if (cloudData.opnameData_room) merged = merged.concat(cloudData.opnameData_room.map(x => ({...x, kategori: "Room"})));
-        if (cloudData.opnameData_persediaan) merged = merged.concat(cloudData.opnameData_persediaan.map(x => ({...x, kategori: "Persediaan"})));
-        if (merged.length) localStorage.setItem(`opnameData_${fileName}`, JSON.stringify(merged));
-      }
     }
     displaySaldoAwal();
     displaySaldoAwalPs();
