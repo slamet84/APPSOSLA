@@ -290,7 +290,7 @@ document.addEventListener("DOMContentLoaded", function() {
     document.getElementById("modalLokasi").style.display = "none";
   }
 
-  // === SINKRONISASI CLOUD AMAN MULTI USER ===
+  // === SINKRONISASI CLOUD AMAN MULTI USER + PATCH INCOGNITO ===
   function getAllOpnameDataWithTimestamp() {
     return {
       lastUpdate: getLastUpdateLocal(),
@@ -329,7 +329,7 @@ document.addEventListener("DOMContentLoaded", function() {
     return obj;
   }
 
-  // ==== SINKRONISASI SATU TOMBOL AMAN MULTI USER ====
+  // ==== SINKRONISASI SATU TOMBOL AMAN MULTI USER + PATCH INCOGNITO ====
   async function syncCloud() {
     const btn = document.getElementById("btnSyncCloud");
     btn.disabled = true;
@@ -340,7 +340,24 @@ document.addEventListener("DOMContentLoaded", function() {
     const localTs = getLastUpdateLocal();
     const cloudTs = cloudData && cloudData.lastUpdate ? parseInt(cloudData.lastUpdate) : 0;
 
-    if (cloudTs > localTs) {
+    // PATCH: Jika local kosong (0) dan cloud ada, langsung pakai data cloud, JANGAN upload local kosong ke cloud!
+    if ((!localTs || localTs === 0) && cloudTs > 0) {
+      if (cloudData.saldoAwal_perlengkapan) localStorage.setItem(`saldoAwal_perlengkapan_${fileName}`, JSON.stringify(cloudData.saldoAwal_perlengkapan));
+      if (cloudData.saldoAwal_persediaan) localStorage.setItem(`saldoAwal_persediaan_${fileName}`, JSON.stringify(cloudData.saldoAwal_persediaan));
+      if (cloudData.opnameData_perlengkapan) localStorage.setItem(`opnameData_perlengkapan_${fileName}`, JSON.stringify(cloudData.opnameData_perlengkapan));
+      if (cloudData.opnameData_persediaan) localStorage.setItem(`opnameData_persediaan_${fileName}`, JSON.stringify(cloudData.opnameData_persediaan));
+      if (cloudData.opnameData_room) localStorage.setItem(`opnameData_room_${fileName}`, JSON.stringify(cloudData.opnameData_room));
+      setLastUpdateLocal(cloudTs);
+      // Merge
+      if (cloudData.opnameData_perlengkapan || cloudData.opnameData_room || cloudData.opnameData_persediaan) {
+        let merged = [];
+        if (cloudData.opnameData_perlengkapan) merged = merged.concat(cloudData.opnameData_perlengkapan.map(x => ({...x, kategori: "Perlengkapan"})));
+        if (cloudData.opnameData_room) merged = merged.concat(cloudData.opnameData_room.map(x => ({...x, kategori: "Room"})));
+        if (cloudData.opnameData_persediaan) merged = merged.concat(cloudData.opnameData_persediaan.map(x => ({...x, kategori: "Persediaan"})));
+        if (merged.length) localStorage.setItem(`opnameData_${fileName}`, JSON.stringify(merged));
+      }
+      alert("Local kosong. Data cloud diimpor ke local.");
+    } else if (cloudTs > localTs) {
       // Cloud lebih baru, timpa lokal
       if (cloudData.saldoAwal_perlengkapan) localStorage.setItem(`saldoAwal_perlengkapan_${fileName}`, JSON.stringify(cloudData.saldoAwal_perlengkapan));
       if (cloudData.saldoAwal_persediaan) localStorage.setItem(`saldoAwal_persediaan_${fileName}`, JSON.stringify(cloudData.saldoAwal_persediaan));
@@ -358,14 +375,12 @@ document.addEventListener("DOMContentLoaded", function() {
       }
       alert("Data cloud lebih baru! Data lokal diperbarui dari cloud.");
     } else if (localTs > cloudTs) {
-      // Lokal lebih baru, upload ke cloud
       await uploadFileOpnameToCloudWithTimestamp();
       alert("Data lokal lebih baru! Data cloud diperbarui.");
     } else {
       alert("Data lokal & cloud sudah sinkron.");
     }
 
-    // Refresh tampilan
     displaySaldoAwal();
     displaySaldoAwalPs();
     refreshHasilOpname();
